@@ -9,8 +9,15 @@ puts
 
 require_relative "../init.rb"
 require "hubbado/sequence/controls"
+require "hubbado/log/controls"
 
 require "test_bench"; TestBench.activate
 require "debug"
+
+I18n.load_path += Dir[File.expand_path("test/locales") + "/*.yml"]
+
+Hubbado::Log.configuration do |config|
+  config.loggers = [Hubbado::Log::Controls::LogHandler]
+end
 
 include Hubbado::Sequence

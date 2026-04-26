@@ -3,4 +3,4 @@ end
 
 source "https://rubygems.org"
 
-gemspec name: "hubbado-sequences"
+gemspec name: "hubbado-sequence"

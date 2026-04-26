@@ -1,0 +1,8 @@
+en:
+  sequence:
+    errors:
+      not_found: "Not found"
+      forbidden: "Not authorized"
+      validation_failed: "Validation failed"
+      persist_failed: "Could not be saved"
+      conflict: "Conflicts with existing data"
