@@ -25,9 +25,9 @@ class Seqs::UpdateUser
 
   def self.build
     new.tap do |instance|
-      Macros::Model::Find.configure(instance, model: User)
+      Macros::Model::Find.configure(instance)
       Macros::Contract::Build.configure(instance)
-      Macros::Policy::Check.configure(instance, policy: Policies::User)
+      Macros::Policy::Check.configure(instance)
       Macros::Contract::Validate.configure(instance)
       Macros::Contract::Persist.configure(instance)
     end
@@ -35,9 +35,9 @@ class Seqs::UpdateUser
 
   def call(ctx)
     pipeline(ctx) do |p|
-      p.invoke(:find,           :user)
-      p.invoke(:build_contract, :user, contract_class: Contracts::UpdateUser)
-      p.invoke(:check_policy,   :user, :update)
+      p.invoke(:find,           User,                  as: :user)
+      p.invoke(:build_contract, Contracts::UpdateUser, :user)
+      p.invoke(:check_policy,   Policies::User,        :user, :update)
 
       p.transaction do |t|
         t.invoke(:validate, from: %i[params user])
@@ -73,7 +73,8 @@ end
 ```
 
 - `p.invoke(:foo, *args, **kwargs)` — a `dependency :foo, …` declared on the
-  sequencer. Calls `dispatcher.foo.(ctx, *args, **kwargs)`.
+  sequencer (a macro or a nested sequencer). Calls
+  `dispatcher.foo.(ctx, *args, **kwargs)`.
 - `p.step(:foo)` — a local instance method. Auto-dispatches to
   `self.foo(ctx)`.
 - `p.step(:foo) { |ctx| … }` — explicit inline block.
@@ -121,7 +122,7 @@ it "updates the user" do
   ))
 
   expect(result).to be_ok
-  expect(seq.find.fetched?(attr_name: :user)).to be true
+  expect(seq.find.fetched?(as: :user)).to be true
   expect(seq.persist.persisted?).to be true
 end
 ```
