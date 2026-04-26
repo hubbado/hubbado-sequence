@@ -1,0 +1,15 @@
+name: Publish Package
+
+on: workflow_dispatch
+
+jobs:
+  publish:
+    strategy:
+      matrix:
+        package: ["hubbado-sequence"]
+
+    uses: hubbado/workflows/.github/workflows/component-package.yml@main
+    with:
+      package: ${{ matrix.package }}
+    secrets:
+      PUBLISH_PACKAGE_WORKFLOW: ${{ secrets.PUBLISH_PACKAGE_WORKFLOW }}
