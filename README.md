@@ -15,7 +15,7 @@ README is a quick tour.
 
 ```ruby
 class Seqs::UpdateUser
-  include Hubbado::Sequence
+  include Hubbado::Sequence::Sequencer
 
   dependency :find,           Macros::Model::Find
   dependency :build_contract, Macros::Contract::Build
@@ -88,7 +88,7 @@ sequencer and nest it as a dependency:
 
 ```ruby
 class Seqs::PresentUser
-  include Hubbado::Sequence
+  include Hubbado::Sequence::Sequencer
 
   configure :present   # so a parent can use `Seqs::PresentUser.configure(instance)`
 
@@ -114,7 +114,7 @@ class Seqs::PresentUser
 end
 
 class Seqs::UpdateUser
-  include Hubbado::Sequence
+  include Hubbado::Sequence::Sequencer
 
   dependency :present,  Seqs::PresentUser
   dependency :validate, Macros::Contract::Validate
@@ -244,7 +244,7 @@ end
 ### Substituting a nested sequencer
 
 Every sequencer ships a default `Substitute` module (installed by
-`include Hubbado::Sequence`) with `succeed_with(**ctx_writes)` /
+`include Hubbado::Sequence::Sequencer`) with `succeed_with(**ctx_writes)` /
 `fail_with(**error)` / `called?(**partial_kwargs)`. The parent's tests can
 short-circuit a nested sequencer without reaching into its inner pieces:
 

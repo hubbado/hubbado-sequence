@@ -6,7 +6,7 @@ context "Hubbado" do
       # A canned-result sequencer: returns whatever Result the test set up.
       sequencer_with_canned = ->(canned_result) {
         Class.new do
-          include Hubbado::Sequence
+          include Hubbado::Sequence::Sequencer
 
           define_singleton_method(:name) { "Seqs::Canned" }
 
@@ -187,7 +187,7 @@ context "Hubbado" do
       context "kwargs are forwarded to the sequencer's ctx" do
         test "controller-supplied kwargs become initial ctx keys" do
           klass = Class.new do
-            include Hubbado::Sequence
+            include Hubbado::Sequence::Sequencer
             define_singleton_method(:name) { "Seqs::WithKwargs" }
             define_singleton_method(:build) { new }
           end

@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 Gem::Specification.new do |s|
   s.name = "hubbado-sequence"
-  s.version = "0.1.0"
+  s.version = "0.2.0"
   s.summary = "A small framework for orchestrating units of business behaviour"
   s.description = "Sequencer takes input, runs a sequence of steps, and returns a Result indicating success or failure plus the working context that was built up during execution."
 

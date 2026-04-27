@@ -13,7 +13,7 @@ context "Hubbado" do
 
       # Inner: loads the model, builds the contract, checks the policy.
       present_class = Class.new do
-        include Hubbado::Sequence
+        include Hubbado::Sequence::Sequencer
 
         define_singleton_method(:name) { "Seqs::Present" }
 
@@ -42,7 +42,7 @@ context "Hubbado" do
 
       # Outer: nests Present, then validates and persists.
       update_class = Class.new do
-        include Hubbado::Sequence
+        include Hubbado::Sequence::Sequencer
 
         define_singleton_method(:name) { "Seqs::UpdateUser" }
 
@@ -100,7 +100,7 @@ context "Hubbado" do
       context "inner failure short-circuits the outer pipeline" do
         denying_policy   = Hubbado::Sequence::Controls::Policy.example(decision: :deny, action: :update)
         denying_present  = Class.new do
-          include Hubbado::Sequence
+          include Hubbado::Sequence::Sequencer
           define_singleton_method(:name) { "Seqs::PresentDenying" }
           configure :present
           dependency :find,           Hubbado::Sequence::Macros::Model::Find
@@ -123,7 +123,7 @@ context "Hubbado" do
         end
 
         denying_update = Class.new do
-          include Hubbado::Sequence
+          include Hubbado::Sequence::Sequencer
           define_singleton_method(:name) { "Seqs::UpdateDenying" }
           dependency :present,  denying_present
           dependency :validate, Hubbado::Sequence::Macros::Contract::Validate

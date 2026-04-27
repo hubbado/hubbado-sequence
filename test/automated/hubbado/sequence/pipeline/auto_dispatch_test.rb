@@ -10,7 +10,7 @@ context "Hubbado" do
     context "Pipeline auto-dispatch" do
       context "via a sequencer's #pipeline helper" do
         seq_class = Class.new do
-          include Hubbado::Sequence
+          include Hubbado::Sequence::Sequencer
 
           define_singleton_method(:name) { "Seqs::AutoDispatch" }
 
@@ -47,7 +47,7 @@ context "Hubbado" do
 
         test "a returning failure short-circuits the pipeline" do
           failing = Class.new do
-            include Hubbado::Sequence
+            include Hubbado::Sequence::Sequencer
             define_singleton_method(:name) { "Seqs::Failing" }
 
             define_method(:call) do |ctx|
@@ -74,7 +74,7 @@ context "Hubbado" do
 
       context "block overrides auto-dispatch" do
         seq_class = Class.new do
-          include Hubbado::Sequence
+          include Hubbado::Sequence::Sequencer
           define_singleton_method(:name) { "Seqs::Override" }
 
           define_method(:call) do |ctx|
@@ -104,7 +104,7 @@ context "Hubbado" do
 
       context "auto-dispatch carries through transaction" do
         seq_class = Class.new do
-          include Hubbado::Sequence
+          include Hubbado::Sequence::Sequencer
           define_singleton_method(:name) { "Seqs::WithTransaction" }
 
           define_method(:call) do |ctx|
@@ -134,7 +134,7 @@ context "Hubbado" do
 
       context "missing method" do
         seq_class = Class.new do
-          include Hubbado::Sequence
+          include Hubbado::Sequence::Sequencer
           define_singleton_method(:name) { "Seqs::Missing" }
 
           define_method(:call) do |ctx|

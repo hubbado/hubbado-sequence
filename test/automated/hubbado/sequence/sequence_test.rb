@@ -4,7 +4,7 @@ context "Hubbado" do
   context "Sequencer (module)" do
     context "when included in a class" do
       sequencer_class = Class.new do
-        include Hubbado::Sequence
+        include Hubbado::Sequence::Sequencer
 
         def self.name
           "Seqs::ExampleSeq"
@@ -84,7 +84,7 @@ context "Hubbado" do
         end
 
         seq_with_dep = Class.new do
-          include Hubbado::Sequence
+          include Hubbado::Sequence::Sequencer
 
           def self.name; "Seqs::WithDep"; end
         end
@@ -105,7 +105,7 @@ context "Hubbado" do
       context "configure macro" do
         test "is available on the including class" do
           klass = Class.new do
-            include Hubbado::Sequence
+            include Hubbado::Sequence::Sequencer
 
             def self.name; "Seqs::Configurable"; end
 

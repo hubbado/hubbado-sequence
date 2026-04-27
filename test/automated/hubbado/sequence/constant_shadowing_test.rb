@@ -32,7 +32,7 @@ context "Hubbado" do
       context "Sequencer#i18n_scope under shadowing" do
         test "derives the scope via the top-level ::Casing" do
           klass = Class.new do
-            include Hubbado::Sequence
+            include Hubbado::Sequence::Sequencer
             def self.name; "Seqs::CheckShadowing"; end
           end
 
@@ -47,7 +47,7 @@ context "Hubbado" do
           model = Hubbado::Sequence::Controls::Model.example
 
           seq_class = Class.new do
-            include Hubbado::Sequence
+            include Hubbado::Sequence::Sequencer
             def self.name; "Seqs::CheckMacroShadowing"; end
           end
           seq_class.dependency :find, Hubbado::Sequence::Macros::Model::Find

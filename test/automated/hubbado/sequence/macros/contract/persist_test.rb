@@ -32,7 +32,7 @@ context "Hubbado" do
 
         context "Substitute" do
           seq_class = Class.new do
-            include Hubbado::Sequence
+            include Hubbado::Sequence::Sequencer
 
             def self.name; "Seqs::WithPersist"; end
           end

@@ -89,7 +89,7 @@ context "Hubbado" do
 
         context "Substitute (via .new on a sequencer that uses Find as a dependency)" do
           seq_class = Class.new do
-            include Hubbado::Sequence
+            include Hubbado::Sequence::Sequencer
 
             def self.name; "Seqs::WithFind"; end
           end

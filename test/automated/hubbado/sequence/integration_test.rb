@@ -13,7 +13,7 @@ context "Hubbado" do
       policy_class   = Hubbado::Sequence::Controls::Policy.example(decision: :permit, action: :update)
 
       seq_class = Class.new do
-        include Hubbado::Sequence
+        include Hubbado::Sequence::Sequencer
 
         define_singleton_method(:name) { "Seqs::UpdateUser" }
 

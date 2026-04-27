@@ -17,7 +17,7 @@ end
 require "hubbado/sequence/ctx"
 require "hubbado/sequence/result"
 require "hubbado/sequence/pipeline"
-require "hubbado/sequence/mixin"
+require "hubbado/sequence/sequencer"
 require "hubbado/sequence/macros/model/find"
 require "hubbado/sequence/macros/model/build"
 require "hubbado/sequence/macros/contract/build"

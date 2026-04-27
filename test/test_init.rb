@@ -20,4 +20,4 @@ Hubbado::Log.configuration do |config|
   config.loggers = [Hubbado::Log::Controls::LogHandler]
 end
 
-include Hubbado::Sequence
+include Hubbado::Sequence::Sequencer

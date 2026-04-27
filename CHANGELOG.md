@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.2.0] - Sequencer mixin moved off the namespace
+
+### Changed (breaking)
+
+- The sequencer mixin moved from `Hubbado::Sequence` to a dedicated
+  `Hubbado::Sequence::Sequencer` submodule. Clients now write
+  `include Hubbado::Sequence::Sequencer` instead of `include Hubbado::Sequence`.
+  The top-level `Hubbado::Sequence` module is now a pure namespace, leaving
+  `Sequence::Pipeline`, `Sequence::Ctx`, `Sequence::Result`, etc. unaffected by
+  including the sequencer machinery and avoiding constant-lookup leakage from
+  the namespace into including classes. No deprecation shim — call sites must
+  be updated in lockstep with the gem upgrade.
+
 ## [0.1.0] - Initial release
 
 Initial public surface, building on `evt-dependency`, `evt-configure`,

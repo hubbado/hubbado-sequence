@@ -13,7 +13,7 @@ context "Hubbado" do
       contract_class = Hubbado::Sequence::Controls::Contract.klass(valid: true)
 
       seq_class = Class.new do
-        include Hubbado::Sequence
+        include Hubbado::Sequence::Sequencer
 
         define_singleton_method(:name) { "Seqs::WithInvokeSteps" }
 
@@ -99,7 +99,7 @@ context "Hubbado" do
         end
 
         seq = Class.new do
-          include Hubbado::Sequence
+          include Hubbado::Sequence::Sequencer
           define_singleton_method(:name) { "Seqs::LenientInvoke" }
 
           dependency :returns_nil, nil_returning_dep
@@ -141,7 +141,7 @@ context "Hubbado" do
       context "missing dependency" do
         test "raises NoMethodError naming the sequencer and dependency" do
           empty_seq = Class.new do
-            include Hubbado::Sequence
+            include Hubbado::Sequence::Sequencer
             define_singleton_method(:name) { "Seqs::Empty" }
 
             define_method(:call) do |ctx|

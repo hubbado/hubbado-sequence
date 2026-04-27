@@ -69,7 +69,7 @@ context "Hubbado" do
 
       context "pipeline(ctx) { |p| ... } from a sequencer" do
         seq_class = Class.new do
-          include Hubbado::Sequence
+          include Hubbado::Sequence::Sequencer
           define_singleton_method(:name) { "Seqs::BlockForm" }
 
           define_method(:call) do |ctx|
@@ -101,7 +101,7 @@ context "Hubbado" do
 
         test "transaction works inside the block" do
           tx_seq = Class.new do
-            include Hubbado::Sequence
+            include Hubbado::Sequence::Sequencer
             define_singleton_method(:name) { "Seqs::BlockFormTx" }
 
             define_method(:call) do |ctx|
@@ -129,7 +129,7 @@ context "Hubbado" do
 
         test "without a block, returns the pipeline (chained form still works)" do
           chain_seq = Class.new do
-            include Hubbado::Sequence
+            include Hubbado::Sequence::Sequencer
             define_singleton_method(:name) { "Seqs::Chained" }
 
             define_method(:call) do |ctx|

@@ -611,7 +611,7 @@ dependencies, defines a `build` factory, and implements `call`.
 
 ```ruby
 class Seqs::UpdateUser
-  include Hubbado::Sequence
+  include Hubbado::Sequence::Sequencer
 
   dependency :find,           Macros::Model::Find
   dependency :build_contract, Macros::Contract::Build
@@ -651,7 +651,7 @@ building a `Ctx` from its kwargs and delegating to the instance.
 
 ```ruby
 class Seqs::UpdateUser
-  include Hubbado::Sequence
+  include Hubbado::Sequence::Sequencer
 
   def call(ctx)
     Pipeline.(ctx)
@@ -1089,7 +1089,7 @@ been settled:
   name in the trail, so the fail-fast property survives intact.
 
   As a side effect, every sequencer now ships with a default `Substitute`
-  module (added by `include Hubbado::Sequence`) that exposes
+  module (added by `include Hubbado::Sequence::Sequencer`) that exposes
   `succeed_with(**ctx_writes)` / `fail_with(**error)` / `called?(...)`,
   matching the macro substitute pattern. Tests can short-circuit a nested
   sequencer with `seq.present.fail_with(code: :forbidden)` without

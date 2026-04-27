@@ -6,7 +6,7 @@ context "Hubbado" do
       context "logging" do
         sequencer_with_canned = ->(canned_result) {
           Class.new do
-            include Hubbado::Sequence
+            include Hubbado::Sequence::Sequencer
 
             define_singleton_method(:name) { "Seqs::Logged" }
 
