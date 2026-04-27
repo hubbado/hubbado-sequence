@@ -7,6 +7,10 @@ module Hubbado
     class Runner
       configure :run_sequence
 
+      def self.build
+        new
+      end
+
       def call(sequencer_class, **kwargs, &block)
         result = sequencer_class.(**kwargs)
 
