@@ -9,8 +9,9 @@ module Hubbado
             new
           end
 
-          def call(ctx, contract_class, attr_name)
-            ctx[:contract] = contract_class.new(ctx[attr_name])
+          def call(ctx, contract_class, attr_name = nil)
+            model = attr_name && Array(attr_name).reduce(ctx) { |acc, k| acc.fetch(k) }
+            ctx[:contract] = contract_class.new(model)
             Result.ok(ctx)
           end
 
@@ -28,7 +29,7 @@ module Hubbado
               self
             end
 
-            record def call(ctx, contract_class, attr_name)
+            record def call(ctx, contract_class, attr_name = nil)
               return Result.fail(ctx, error: @configured_error) if @configured_error
 
               ctx[:contract] = @return_value if @configured_success
