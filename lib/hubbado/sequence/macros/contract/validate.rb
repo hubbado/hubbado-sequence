@@ -9,9 +9,9 @@ module Hubbado
             new
           end
 
-          def call(ctx, from:)
+          def call(ctx, from: nil)
             contract = ctx[:contract]
-            params = Array(from).reduce(ctx) { |acc, k| acc.fetch(k) }
+            params = from ? Array(from).reduce(ctx) { |acc, k| acc.fetch(k) } : {}
 
             contract.validate(params)
 
@@ -35,7 +35,7 @@ module Hubbado
               self
             end
 
-            record def call(ctx, from:)
+            record def call(ctx, from: nil)
               return Result.fail(ctx, error: @configured_error) if @configured_error
 
               Result.ok(ctx)

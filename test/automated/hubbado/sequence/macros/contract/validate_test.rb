@@ -63,6 +63,28 @@ context "Hubbado" do
           end
         end
 
+        context "from: nil (or omitted) — contract has been pre-deserialised" do
+          test "validates without re-deserialising and returns ok when valid" do
+            contract = Hubbado::Sequence::Controls::Contract.example(valid: true)
+            ctx = Hubbado::Sequence::Ctx.build(contract: contract)
+
+            result = validate.(ctx)
+
+            assert result.ok?
+            assert contract.validated_with == {}
+          end
+
+          test "returns failure with code :validation_failed when invalid" do
+            contract = Hubbado::Sequence::Controls::Contract.example(valid: false)
+            ctx = Hubbado::Sequence::Ctx.build(contract: contract)
+
+            result = validate.(ctx)
+
+            assert result.failure?
+            assert result.error[:code] == :validation_failed
+          end
+        end
+
         context "Substitute" do
           seq_class = Class.new do
             include Hubbado::Sequence::Sequencer
