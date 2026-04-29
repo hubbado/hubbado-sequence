@@ -19,6 +19,42 @@ context "Hubbado" do
           end
         end
 
+        context "with a nested ctx path" do
+          test "reads the model from the path" do
+            ctx = Hubbado::Sequence::Ctx.build(form: { user: :a_user })
+            result = build_contract.(ctx, contract_class, %i[form user])
+
+            assert result.ok?
+            assert ctx[:contract].model == :a_user
+          end
+        end
+
+        context "without an attr name" do
+          test "wraps nil so the contract has no model" do
+            ctx = Hubbado::Sequence::Ctx.new
+            result = build_contract.(ctx, contract_class)
+
+            assert result.ok?
+            assert ctx[:contract].is_a?(contract_class)
+            assert ctx[:contract].model.nil?
+          end
+        end
+
+        context "missing path" do
+          test "raises KeyError when the supplied attr_name is absent from ctx" do
+            ctx = Hubbado::Sequence::Ctx.new
+
+            captured = nil
+            begin
+              build_contract.(ctx, contract_class, :missing_user)
+            rescue KeyError => e
+              captured = e
+            end
+
+            refute captured.nil?
+          end
+        end
+
         context ".build" do
           test "constructs an instance" do
             instance = Hubbado::Sequence::Macros::Contract::Build.build

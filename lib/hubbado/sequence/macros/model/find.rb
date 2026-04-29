@@ -9,8 +9,8 @@ module Hubbado
             new
           end
 
-          def call(ctx, model, as:, id_key: :id, from: :params)
-            id = read_id(ctx, from, id_key)
+          def call(ctx, model, as:, id_key: %i[params id])
+            id = Path.resolve(ctx, id_key)
             record = model.find_by(id: id)
 
             if record
@@ -19,13 +19,6 @@ module Hubbado
             else
               Result.fail(ctx, error: { code: :not_found })
             end
-          end
-
-          private
-
-          def read_id(ctx, from, id_key)
-            container = Array(from).reduce(ctx) { |acc, k| acc.fetch(k) }
-            container.is_a?(Hash) ? container[id_key] : container
           end
 
           module Substitute
@@ -42,7 +35,7 @@ module Hubbado
               self
             end
 
-            record def call(ctx, model, as:, id_key: :id, from: :params)
+            record def call(ctx, model, as:, id_key: %i[params id])
               unless model.respond_to?(:find_by)
                 raise ArgumentError,
                   "Macros::Model::Find substitute: #{model} does not respond to :find_by"

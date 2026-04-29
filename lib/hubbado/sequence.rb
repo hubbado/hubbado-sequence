@@ -15,12 +15,14 @@ module Hubbado
 end
 
 require "hubbado/sequence/ctx"
+require "hubbado/sequence/path"
 require "hubbado/sequence/result"
 require "hubbado/sequence/pipeline"
 require "hubbado/sequence/sequencer"
 require "hubbado/sequence/macros/model/find"
 require "hubbado/sequence/macros/model/build"
 require "hubbado/sequence/macros/contract/build"
+require "hubbado/sequence/macros/contract/deserialize"
 require "hubbado/sequence/macros/contract/validate"
 require "hubbado/sequence/macros/contract/persist"
 require "hubbado/sequence/macros/policy/check"

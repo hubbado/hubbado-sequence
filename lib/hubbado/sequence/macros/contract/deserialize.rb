@@ -2,46 +2,36 @@ module Hubbado
   module Sequence
     module Macros
       module Contract
-        class Validate
-          configure :validate
+        class Deserialize
+          configure :deserialize_to_contract
 
           def self.build
             new
           end
 
-          def call(ctx, from: nil)
-            contract = ctx[:contract]
-            params = from ? Path.resolve(ctx, from) : {}
+          def call(ctx, from:)
+            params = Path.resolve(ctx, from, missing: :nil)
 
-            contract.validate(params)
+            ctx[:contract].deserialize(params) if params
 
-            if contract.errors.empty?
-              Result.ok(ctx)
-            else
-              Result.fail(ctx, error: { code: :validation_failed })
-            end
+            Result.ok(ctx)
           end
 
           module Substitute
             include ::RecordInvocation
-
-            def succeed_with
-              @configured_success = true
-              self
-            end
 
             def fail_with(**error_attrs)
               @configured_error = error_attrs
               self
             end
 
-            record def call(ctx, from: nil)
+            record def call(ctx, from:)
               return Result.fail(ctx, error: @configured_error) if @configured_error
 
               Result.ok(ctx)
             end
 
-            def validated?(**kwargs)
+            def deserialized?(**kwargs)
               invoked?(:call, **kwargs)
             end
           end

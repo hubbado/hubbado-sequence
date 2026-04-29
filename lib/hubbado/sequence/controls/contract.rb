@@ -15,7 +15,7 @@ module Hubbado
 
         def self.klass_for(valid:, save_result:)
           Class.new do
-            attr_reader :model, :validated_with, :saved
+            attr_reader :model, :validated_with, :deserialized_with, :saved
             attr_accessor :errors
 
             define_singleton_method(:default_valid) { valid }
@@ -31,6 +31,11 @@ module Hubbado
             def validate(params)
               @validated_with = params
               @valid
+            end
+
+            def deserialize(params)
+              @deserialized_with = params
+              self
             end
 
             def save
