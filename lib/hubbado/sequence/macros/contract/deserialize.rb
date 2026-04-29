@@ -3,7 +3,7 @@ module Hubbado
     module Macros
       module Contract
         class Deserialize
-          configure :deserialize
+          configure :deserialize_to_contract
 
           def self.build
             new

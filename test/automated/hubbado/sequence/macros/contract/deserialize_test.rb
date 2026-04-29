@@ -62,21 +62,21 @@ context "Hubbado" do
 
             def self.name; "Seqs::WithDeserialize"; end
           end
-          seq_class.dependency :deserialize, Hubbado::Sequence::Macros::Contract::Deserialize
+          seq_class.dependency :deserialize_to_contract, Hubbado::Sequence::Macros::Contract::Deserialize
 
           test "default behaviour is pass-through ok" do
             seq = seq_class.new
 
-            result = seq.deserialize.(Hubbado::Sequence::Ctx.new, from: :params)
+            result = seq.deserialize_to_contract.(Hubbado::Sequence::Ctx.new, from: :params)
 
             assert result.ok?
           end
 
           test "fail_with(**error) returns a failed result" do
             seq = seq_class.new
-            seq.deserialize.fail_with(code: :something_wrong)
+            seq.deserialize_to_contract.fail_with(code: :something_wrong)
 
-            result = seq.deserialize.(Hubbado::Sequence::Ctx.new, from: :params)
+            result = seq.deserialize_to_contract.(Hubbado::Sequence::Ctx.new, from: :params)
 
             assert result.failure?
             assert result.error[:code] == :something_wrong
@@ -84,11 +84,11 @@ context "Hubbado" do
 
           test "deserialized? records the from: argument" do
             seq = seq_class.new
-            seq.deserialize.(Hubbado::Sequence::Ctx.new, from: %i[params user])
+            seq.deserialize_to_contract.(Hubbado::Sequence::Ctx.new, from: %i[params user])
 
-            assert seq.deserialize.deserialized?
-            assert seq.deserialize.deserialized?(from: %i[params user])
-            refute seq.deserialize.deserialized?(from: :other)
+            assert seq.deserialize_to_contract.deserialized?
+            assert seq.deserialize_to_contract.deserialized?(from: %i[params user])
+            refute seq.deserialize_to_contract.deserialized?(from: :other)
           end
         end
       end
