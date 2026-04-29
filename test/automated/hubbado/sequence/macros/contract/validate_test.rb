@@ -63,6 +63,22 @@ context "Hubbado" do
           end
         end
 
+        context "missing path" do
+          test "raises KeyError when the configured from: is absent from ctx" do
+            contract = Hubbado::Sequence::Controls::Contract.example
+            ctx = Hubbado::Sequence::Ctx.build(contract: contract, params: {})
+
+            captured = nil
+            begin
+              validate.(ctx, from: %i[params missing])
+            rescue KeyError => e
+              captured = e
+            end
+
+            refute captured.nil?
+          end
+        end
+
         context "from: nil (or omitted) — contract has been pre-deserialised" do
           test "validates without re-deserialising and returns ok when valid" do
             contract = Hubbado::Sequence::Controls::Contract.example(valid: true)

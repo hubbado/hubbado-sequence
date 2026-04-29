@@ -10,7 +10,7 @@ module Hubbado
           end
 
           def call(ctx, from:)
-            params = Array(from).reduce(ctx) { |acc, k| acc.fetch(k, nil) }
+            params = Path.resolve(ctx, from, missing: :nil)
 
             ctx[:contract].deserialize(params) if params
 

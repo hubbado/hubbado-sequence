@@ -10,7 +10,7 @@ module Hubbado
           end
 
           def call(ctx, model, as:, id_key: %i[params id])
-            id = Array(id_key).reduce(ctx) { |acc, k| acc.fetch(k) }
+            id = Path.resolve(ctx, id_key)
             record = model.find_by(id: id)
 
             if record
