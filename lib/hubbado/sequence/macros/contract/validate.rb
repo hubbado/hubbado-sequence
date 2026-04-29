@@ -11,7 +11,7 @@ module Hubbado
 
           def call(ctx, from: nil)
             contract = ctx[:contract]
-            params = from ? Array(from).reduce(ctx) { |acc, k| acc.fetch(k) } : {}
+            params = from ? Path.resolve(ctx, from) : {}
 
             contract.validate(params)
 

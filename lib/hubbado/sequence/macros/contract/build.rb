@@ -10,7 +10,7 @@ module Hubbado
           end
 
           def call(ctx, contract_class, attr_name = nil)
-            model = attr_name && Array(attr_name).reduce(ctx) { |acc, k| acc.fetch(k) }
+            model = attr_name && Path.resolve(ctx, attr_name)
             ctx[:contract] = contract_class.new(model)
             Result.ok(ctx)
           end

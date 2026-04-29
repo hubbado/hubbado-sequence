@@ -40,6 +40,21 @@ context "Hubbado" do
           end
         end
 
+        context "missing path" do
+          test "raises KeyError when the supplied attr_name is absent from ctx" do
+            ctx = Hubbado::Sequence::Ctx.new
+
+            captured = nil
+            begin
+              build_contract.(ctx, contract_class, :missing_user)
+            rescue KeyError => e
+              captured = e
+            end
+
+            refute captured.nil?
+          end
+        end
+
         context ".build" do
           test "constructs an instance" do
             instance = Hubbado::Sequence::Macros::Contract::Build.build

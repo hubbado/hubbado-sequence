@@ -15,6 +15,7 @@ module Hubbado
 end
 
 require "hubbado/sequence/ctx"
+require "hubbado/sequence/path"
 require "hubbado/sequence/result"
 require "hubbado/sequence/pipeline"
 require "hubbado/sequence/sequencer"

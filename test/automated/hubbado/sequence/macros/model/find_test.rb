@@ -79,6 +79,23 @@ context "Hubbado" do
           end
         end
 
+        context "missing path" do
+          find = Hubbado::Sequence::Macros::Model::Find.new
+
+          test "raises KeyError when the configured id_key is absent from ctx" do
+            ctx = Hubbado::Sequence::Ctx.build(params: {})
+
+            captured = nil
+            begin
+              find.(ctx, model, as: :user, id_key: %i[params missing_id])
+            rescue KeyError => e
+              captured = e
+            end
+
+            refute captured.nil?
+          end
+        end
+
         context ".build" do
           test "constructs an instance" do
             find = Hubbado::Sequence::Macros::Model::Find.build
