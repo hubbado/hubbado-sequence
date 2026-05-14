@@ -49,14 +49,29 @@ context "Hubbado" do
           end
         end
 
-        context "id_key:" do
+        context "id_key: with an array path" do
           model.reset
           model.put(42, :a_user)
 
           find = Hubbado::Sequence::Macros::Model::Find.new
 
-          test "reads the id from a different params key" do
+          test "reads the id at the nested ctx path" do
             ctx = Hubbado::Sequence::Ctx.build(params: { user_id: 42 })
+            result = find.(ctx, model, as: :user, id_key: %i[params user_id])
+
+            assert result.ok?
+            assert ctx[:user] == :a_user
+          end
+        end
+
+        context "id_key: with a single symbol" do
+          model.reset
+          model.put(7, :a_user)
+
+          find = Hubbado::Sequence::Macros::Model::Find.new
+
+          test "reads the id directly from that ctx key" do
+            ctx = Hubbado::Sequence::Ctx.build(user_id: 7)
             result = find.(ctx, model, as: :user, id_key: :user_id)
 
             assert result.ok?
@@ -64,18 +79,20 @@ context "Hubbado" do
           end
         end
 
-        context "from:" do
-          model.reset
-          model.put(7, :a_user)
-
+        context "missing path" do
           find = Hubbado::Sequence::Macros::Model::Find.new
 
-          test "reads from a nested ctx path" do
-            ctx = Hubbado::Sequence::Ctx.build(request: { payload: { id: 7 } })
-            result = find.(ctx, model, as: :user, from: %i[request payload])
+          test "raises KeyError when the configured id_key is absent from ctx" do
+            ctx = Hubbado::Sequence::Ctx.build(params: {})
 
-            assert result.ok?
-            assert ctx[:user] == :a_user
+            captured = nil
+            begin
+              find.(ctx, model, as: :user, id_key: %i[params missing_id])
+            rescue KeyError => e
+              captured = e
+            end
+
+            refute captured.nil?
           end
         end
 
