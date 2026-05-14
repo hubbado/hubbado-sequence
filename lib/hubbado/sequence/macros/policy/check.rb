@@ -1,3 +1,4 @@
+# Works with hubbado-policy. Builds a policy instance and calls the action; fails with :forbidden when denied.
 module Hubbado
   module Sequence
     module Macros

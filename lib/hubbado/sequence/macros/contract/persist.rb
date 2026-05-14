@@ -1,3 +1,4 @@
+# Works with Reform contracts. Calls contract.save; fails with :persist_failed when save returns false.
 module Hubbado
   module Sequence
     module Macros

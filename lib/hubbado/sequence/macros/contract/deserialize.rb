@@ -1,3 +1,4 @@
+# Works with Reform contracts. Calls contract.deserialize with params sourced from ctx; no-op when the path is absent.
 module Hubbado
   module Sequence
     module Macros

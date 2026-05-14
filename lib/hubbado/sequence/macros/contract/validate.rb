@@ -1,3 +1,4 @@
+# Works with Reform contracts. Validates the contract and checks errors; fails with :validation_failed when invalid.
 module Hubbado
   module Sequence
     module Macros
