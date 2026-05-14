@@ -1,3 +1,4 @@
+# Works with Reform contracts. Wraps a model in a contract class and writes the instance to ctx[:contract].
 module Hubbado
   module Sequence
     module Macros

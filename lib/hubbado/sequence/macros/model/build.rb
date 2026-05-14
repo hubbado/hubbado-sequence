@@ -1,3 +1,4 @@
+# Works with ActiveRecord models. Instantiates a new model record (with optional attributes) and writes it to ctx.
 module Hubbado
   module Sequence
     module Macros

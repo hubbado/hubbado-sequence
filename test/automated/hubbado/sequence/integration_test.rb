@@ -8,9 +8,9 @@ require_relative "../../../test_init"
 context "Hubbado" do
   context "Sequencer" do
     context "End-to-end: Seqs::UpdateUser-style sequencer" do
-      model_class    = Hubbado::Sequence::Controls::Model.example
-      contract_class = Hubbado::Sequence::Controls::Contract.klass(valid: true, save_result: true)
-      policy_class   = Hubbado::Sequence::Controls::Policy.example(decision: :permit, action: :update)
+      model_class    = Hubbado::Sequence::Controls::Model.example_class
+      contract_class = Hubbado::Sequence::Controls::Contract.example_class(valid: true, save_result: true)
+      policy_class   = Hubbado::Sequence::Controls::Policy.example_class(decision: :permit, action: :update)
 
       seq_class = Class.new do
         include Hubbado::Sequence::Sequencer

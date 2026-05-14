@@ -44,7 +44,7 @@ context "Hubbado" do
 
       context "macro Substitute under shadowing" do
         test "defaults to pass-through ok using top-level ::RecordInvocation" do
-          model = Hubbado::Sequence::Controls::Model.example
+          model = Hubbado::Sequence::Controls::Model.example_class
 
           seq_class = Class.new do
             include Hubbado::Sequence::Sequencer

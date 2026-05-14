@@ -4,7 +4,7 @@ context "Hubbado" do
   context "Sequencer" do
     context "Macros" do
       context "Contract::Build" do
-        contract_class = Hubbado::Sequence::Controls::Contract.klass
+        contract_class = Hubbado::Sequence::Controls::Contract.example_class
 
         build_contract = Hubbado::Sequence::Macros::Contract::Build.new
 

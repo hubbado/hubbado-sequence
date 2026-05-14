@@ -4,6 +4,81 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.3.0] - Contract::Deserialize macro, Runner extraction, Path helper
+
+### Added
+
+- **`Macros::Contract::Deserialize`** — new macro for populating
+  `ctx[:contract]` from submitted params.
+  - Calls `contract.deserialize(params)` with params read from a
+    configurable ctx path.
+  - No-op when the path is absent — safe for fresh-form GETs before any
+    params have been posted.
+  - Configure name is `:deserialize_to_contract` rather than the generic
+    `:deserialize`, to avoid colliding with sequencer-local methods of
+    the same name.
+
+- **`Hubbado::Sequence::Runner`** — outcome-dispatch + safety-net logic
+  extracted from `RunSequence` into a standalone object.
+  - Ships with its own `Substitute` for unit-testing the dispatch
+    behaviour in isolation.
+  - `Runner.build` factory lets `Runner.configure` install it as a
+    dependency on any consumer.
+  - `RunSequence` is now a thin delegator that retains its existing
+    controller-side API; no migration is needed for controllers already
+    using `run_sequence`.
+
+- **`Hubbado::Sequence::Path.resolve`** — shared ctx-path helper used by
+  every macro that reads a configurable location from ctx.
+  - Accepts a Symbol (one-key shorthand) or an Array of Symbols (nested
+    fetch); walks via `fetch`.
+  - Explicit `missing:` policy:
+    - `:raise` (default) — propagates `KeyError`. Right for
+      Find/Validate/Build, where a missing path is a wiring bug.
+    - `:nil` — returns nil. Right for Deserialize, which may legitimately
+      run before any params have been posted.
+  - Falling back to `send` on a non-hash was considered and rejected: it
+    would silently overlap path traversal with method calls and undermine
+    the strict-Ctx contract.
+
+- **`Macros::Contract::Validate`** — `from:` is now optional.
+  - Omit it when the contract has already been deserialised (e.g. via
+    `Contract::Deserialize`) to validate as-is and skip re-deserialising.
+  - When supplied, behaviour is unchanged.
+
+### Changed (breaking)
+
+- **Controls factory method renamed to `example_class`**, matching the
+  Eventide convention (`example` returns a configured instance,
+  `example_class` returns the configurable class).
+  - `Controls::Contract.klass` → `Controls::Contract.example_class`.
+  - `Controls::Model.example` → `Controls::Model.example_class`.
+  - `Controls::Policy.example` → `Controls::Policy.example_class`.
+  - The previous shapes returned classes despite being named `example` /
+    `klass`. Consumer tests need their call sites updated.
+
+- **`Macros::Model::Find`** — `id_key:` is now a single ctx-path argument
+  resolved via `Path.resolve`.
+  - Accepts a Symbol (e.g. `id_key: :user_id`) or an Array of Symbols
+    (e.g. `id_key: %i[params id]`).
+  - Default remains `%i[params id]`.
+  - Callers passing the previous shape need to switch to the path form.
+
+- **`Macros::Contract::Build`** — the model attribute is now optional and
+  accepts a ctx-path.
+  - Symbol or Array of Symbols, resolved via `Path.resolve`.
+  - Omit it for contract-first flows where there is no model yet.
+  - Previous form (single Symbol naming a top-level ctx key, required)
+    continues to work because a Symbol is a valid path.
+
+### Removed
+
+- **`I18n.default_locale = :en` override** no longer set by
+  `lib/hubbado/sequence.rb` on require.
+  - Host apps are responsible for their own I18n configuration.
+  - The gem's translation registration (`I18n.load_path += …`) is
+    unchanged — `config/locales/en.yml` still ships and is still loaded.
+
 ## [0.2.0] - Sequencer mixin moved off the namespace
 
 ### Changed (breaking)

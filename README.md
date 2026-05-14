@@ -11,6 +11,58 @@ during execution.
 The full design rationale lives in [`docs/design.md`](docs/design.md). This
 README is a quick tour.
 
+## Installation
+
+Add to your Gemfile:
+
+```ruby
+gem "hubbado-sequence"
+```
+
+Then run `bundle install`.
+
+## Requirements
+
+- Ruby >= 3.3
+- [evt-dependency](https://github.com/eventide-project/dependency) — powers
+  the injectable macro / nested-sequencer pattern (declared as a runtime
+  dependency of the gem).
+
+Optional, depending on which macros you use:
+
+- [ActiveRecord](https://github.com/rails/rails) for `Model::Find`,
+  `Model::Build`, and `Pipeline#transaction`.
+- [Reform](https://github.com/trailblazer/reform) for `Contract::Build`,
+  `Contract::Deserialize`, `Contract::Validate`, and `Contract::Persist`.
+- [hubbado-policy](https://github.com/hubbado/hubbado-policy) for
+  `Policy::Check`.
+
+## Philosophy
+
+Sequencers sit at the controller boundary. They receive input from a Rails
+action, orchestrate the work, and hand a `Result` back. The sequencer's job
+is **orchestration only** — it should not contain business logic itself. Real
+behaviour lives in the models, contracts, policies, and domain objects it
+calls.
+
+Nesting is intentionally shallow. The only nesting we use in practice is a
+`Present` sequencer inside an `Update` sequencer: Present loads the record,
+builds the contract, and checks the policy; Update calls Present and then
+validates and persists. Chains longer than one level are rare enough to be a
+signal that something should be a plain Ruby object instead.
+
+The framework uses [evt-dependency](https://github.com/eventide-project/dependency),
+which means every macro and every nested sequencer is an injectable
+dependency. Calling `.new` on a sequencer installs substitutes for all of
+them, so unit tests exercise the sequencer's orchestration logic — what runs,
+in what order, what short-circuits — without hitting the database, the policy
+gem, or Reform. The substitutes default to pass-through `ok`, so a test only
+configures the outcomes that matter for the scenario it's verifying.
+
+Integration coverage (using `.build` to wire real collaborators) is reserved
+for the controller boundary — one happy-path integration test per sequencer
+is usually enough to confirm the wiring is correct.
+
 ## Quick start
 
 ```ruby
@@ -78,6 +130,160 @@ end
 - `p.step(:foo)` — a local instance method. Auto-dispatches to
   `self.foo(ctx)`.
 - `p.step(:foo) { |ctx| … }` — explicit inline block.
+
+The `pipeline(ctx)` helper (lowercase `p`) is what enables blockless
+`p.step(:foo)` auto-dispatch — it builds a Pipeline that knows which
+sequencer to dispatch back to. `Pipeline.(ctx)` (capital `P`) is the bare
+constructor with no dispatcher and requires every `step` to have a block.
+Use `pipeline(ctx)` inside a sequencer; `Pipeline.(ctx)` is mainly useful
+for framework tests.
+
+## Built-in macros
+
+Each macro is a dependency declared on a sequencer with `dependency :name, Macros::...`
+and wired via `.configure(instance)` in `.build`.
+
+The model macros are designed to work with ActiveRecord models.
+
+### Model::Find
+
+Fetches a record using `model.find_by(id:)` and writes it to `ctx[as]`.
+
+```ruby
+p.invoke(:find, User, as: :user)
+p.invoke(:find, User, as: :user, id_key: :user_id)   # single key
+p.invoke(:find, User, as: :user, id_key: %i[params id])  # nested path (default)
+```
+
+| | |
+|---|---|
+| **Reads** | `ctx` at `id_key` (default: `%i[params id]`) |
+| **Writes** | `ctx[as]` — the found record |
+| **Fails** | `:not_found` when `find_by` returns nil |
+
+### Model::Build
+
+Instantiates a new record and writes it to `ctx[as]`.
+
+```ruby
+p.invoke(:build_record, User, as: :user)
+p.invoke(:build_record, User, as: :user, attributes: { role: :admin })
+```
+
+| | |
+|---|---|
+| **Reads** | nothing |
+| **Writes** | `ctx[as]` — the new instance |
+| **Fails** | never |
+
+The contract macros are designed to work with [Reform](https://github.com/trailblazer/reform) form objects.
+
+### Contract::Build
+
+Wraps a model in a contract and writes it to `ctx[:contract]`.
+
+```ruby
+p.invoke(:build_contract, Contracts::UpdateUser, :user)  # model from ctx[:user]
+p.invoke(:build_contract, Contracts::CreateUser)         # no model
+```
+
+| | |
+|---|---|
+| **Reads** | `ctx[attr_name]` for the model (optional) |
+| **Writes** | `ctx[:contract]` |
+| **Fails** | never |
+
+### Contract::Deserialize
+
+Deserializes params into the contract via `contract.deserialize(params)`.
+
+```ruby
+p.invoke(:deserialize_to_contract, from: %i[params user])
+p.invoke(:deserialize_to_contract, from: :raw_params)
+```
+
+| | |
+|---|---|
+| **Reads** | `ctx[:contract]`, `ctx` at `from:` |
+| **Writes** | nothing (mutates the contract in place) |
+| **Fails** | never (no-op when the `from:` path is absent) |
+
+### Contract::Validate
+
+Validates the contract via `contract.validate(params)` and checks `errors`.
+
+```ruby
+p.invoke(:validate, from: %i[params user])
+p.invoke(:validate)   # contract already deserialized; passes empty params
+```
+
+| | |
+|---|---|
+| **Reads** | `ctx[:contract]`, `ctx` at `from:` (when given) |
+| **Writes** | nothing (populates `contract.errors` on invalid) |
+| **Fails** | `:validation_failed` when `contract.errors` is non-empty |
+
+### Contract::Persist
+
+Saves the contract via `contract.save`.
+
+```ruby
+p.invoke(:persist)
+```
+
+| | |
+|---|---|
+| **Reads** | `ctx[:contract]` |
+| **Writes** | nothing |
+| **Fails** | `:persist_failed` when `save` returns false |
+
+### Policy::Check
+
+Builds a policy and calls the named action to authorise the operation.
+
+```ruby
+p.invoke(:check_policy, Policies::User, :user, :update)
+```
+
+Designed to work with the [hubbado-policy](https://github.com/hubbado/hubbado-policy) gem.
+The policy class must respond to `.build(current_user, record)`; the instance must
+respond to the action method and return an object with `permitted?`.
+
+| | |
+|---|---|
+| **Reads** | `ctx[:current_user]`, `ctx[record_key]` |
+| **Writes** | nothing |
+| **Fails** | `:forbidden` when `permitted?` is false; `error[:data]` carries `{ policy:, policy_result: }` |
+
+## Transactions
+
+`Pipeline#transaction` wraps inner steps in `ActiveRecord::Base.transaction`.
+A failed inner step raises `ActiveRecord::Rollback` and the failed `Result`
+still propagates outward.
+
+```ruby
+def call(ctx)
+  pipeline(ctx) do |p|
+    p.invoke(:find,           User,                  as: :user)
+    p.invoke(:build_contract, Contracts::UpdateUser, :user)
+    p.invoke(:check_policy,   Policies::User,        :user, :update)
+
+    p.transaction do |t|
+      t.invoke(:validate, from: %i[params user])
+      t.invoke(:persist)
+    end
+
+    p.step(:notify) { |c| UserMailer.updated(c[:user]).deliver_later }
+  end
+end
+```
+
+Steps before the transaction run outside it (read-only lookups, policy
+checks). Steps after run after commit (notifications, emails — things that
+shouldn't run if the DB write didn't stick).
+
+When ActiveRecord isn't loaded, `transaction` runs the inner block inline
+as part of the same pipeline.
 
 ## Nested sequencers (Present + Update)
 
@@ -195,6 +401,11 @@ def must_be_premium(ctx)
 end
 ```
 
+`failure(ctx, ...)` is a sequencer helper that builds a failed `Result`
+with the sequencer's auto-derived i18n scope already applied. It takes the
+same error attrs as the underlying error hash (`code:`, `i18n_key:`,
+`i18n_args:`, `data:`, `message:`).
+
 ## Testing
 
 `described_class.new` returns a sequencer with all dependencies installed as
@@ -304,6 +515,30 @@ left behind. `fail_with(**error)` returns a failed `Result` with the given
 error, short-circuiting the outer pipeline. The Update spec doesn't need
 to exercise Find / Build / Policy::Check directly — those live in
 PresentUser's spec, where they belong.
+
+## Observability
+
+Every `Result` carries a **trail** — the list of step names that completed
+successfully, in order. On failure, the failing step is *not* in the trail;
+it's tagged on `error[:step]` instead.
+
+```ruby
+result.trail         # => [:find, :build_contract, :check_policy, :validate, :persist]  # success
+result.trail         # => [:find, :build_contract]                                       # failed at :check_policy
+result.error[:step]  # => :check_policy
+```
+
+When invoked via `run_sequence`, the dispatcher logs a single line per
+invocation summarising the trail and (on failure) where it stopped:
+
+```
+Sequencer Seqs::UpdateUser succeeded: find → build_contract → check_policy → validate → persist
+Sequencer Seqs::UpdateUser failed at :check_policy (forbidden): find → build_contract
+```
+
+Nested sequencer trails are opaque to the parent: a parent's trail shows
+`:present` as a single step, not the sub-steps inside Present.
+`error[:step]` carries the inner step name when a nested sequencer fails.
 
 ## Standard error codes
 

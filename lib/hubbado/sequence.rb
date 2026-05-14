@@ -7,7 +7,6 @@ require "record_invocation"
 require "template_method"; TemplateMethod.activate
 
 I18n.load_path += Dir[File.expand_path("../../config/locales", __dir__) + "/*.yml"]
-I18n.default_locale = :en if I18n.default_locale.nil?
 
 module Hubbado
   module Sequence

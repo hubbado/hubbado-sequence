@@ -1,3 +1,4 @@
+# Works with ActiveRecord models. Fetches a record by id from ctx and writes it to ctx; fails with :not_found on miss.
 module Hubbado
   module Sequence
     module Macros

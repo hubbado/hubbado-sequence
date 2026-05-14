@@ -4,7 +4,7 @@ context "Hubbado" do
   context "Sequencer" do
     context "Macros" do
       context "Model::Find" do
-        model = Hubbado::Sequence::Controls::Model.example
+        model = Hubbado::Sequence::Controls::Model.example_class
 
         context "successful find" do
           model.reset

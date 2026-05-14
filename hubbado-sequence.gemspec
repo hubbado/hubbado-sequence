@@ -1,17 +1,18 @@
 # -*- encoding: utf-8 -*-
 Gem::Specification.new do |s|
   s.name = "hubbado-sequence"
-  s.version = "0.2.0"
+  s.version = "0.3.0"
   s.summary = "A small framework for orchestrating units of business behaviour"
   s.description = "Sequencer takes input, runs a sequence of steps, and returns a Result indicating success or failure plus the working context that was built up during execution."
 
   s.authors = ["Hubbado Devs"]
   s.email = ["devs@hubbado.com"]
   s.homepage = "https://github.com/hubbado/hubbado-sequence"
+  s.license = "MIT"
 
-  s.metadata["allowed_push_host"] = "https://rubygems.pkg.github.com/hubbado"
-  s.metadata["github_repo"] = s.homepage
   s.metadata["homepage_uri"] = s.homepage
+  s.metadata["source_code_uri"] = s.homepage
+  s.metadata["changelog_uri"] = "#{s.homepage}/blob/master/CHANGELOG.md"
 
   s.require_paths = ["lib"]
   s.files = Dir.glob(%w[

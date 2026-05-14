@@ -9,8 +9,8 @@ require_relative "../../../../test_init"
 context "Hubbado" do
   context "Sequencer" do
     context "Pipeline#invoke" do
-      model = Hubbado::Sequence::Controls::Model.example
-      contract_class = Hubbado::Sequence::Controls::Contract.klass(valid: true)
+      model = Hubbado::Sequence::Controls::Model.example_class
+      contract_class = Hubbado::Sequence::Controls::Contract.example_class(valid: true)
 
       seq_class = Class.new do
         include Hubbado::Sequence::Sequencer
