@@ -4,7 +4,7 @@ context "Hubbado" do
   context "Sequencer" do
     context "Macros" do
       context "Model::Build" do
-        model = Hubbado::Sequence::Controls::Model.example
+        model = Hubbado::Sequence::Controls::Model.example_class
 
         context "with no initial attributes" do
           build_macro = Hubbado::Sequence::Macros::Model::Build.new

@@ -2,7 +2,7 @@ module Hubbado
   module Sequence
     module Controls
       module Model
-        def self.example
+        def self.example_class
           Class.new do
             def self.records
               @records ||= {}

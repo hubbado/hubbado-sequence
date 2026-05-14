@@ -6,7 +6,7 @@ context "Hubbado" do
       context "Policy::Check" do
         context "permitted action" do
           test "returns ok" do
-            policy_class = Hubbado::Sequence::Controls::Policy.example(decision: :permit, action: :update)
+            policy_class = Hubbado::Sequence::Controls::Policy.example_class(decision: :permit, action: :update)
 
             check_policy = Hubbado::Sequence::Macros::Policy::Check.new
 
@@ -19,7 +19,7 @@ context "Hubbado" do
 
         context "denied action" do
           test "returns failure with code :forbidden" do
-            policy_class = Hubbado::Sequence::Controls::Policy.example(decision: :deny, action: :update)
+            policy_class = Hubbado::Sequence::Controls::Policy.example_class(decision: :deny, action: :update)
 
             check_policy = Hubbado::Sequence::Macros::Policy::Check.new
 
@@ -31,7 +31,7 @@ context "Hubbado" do
           end
 
           test "carries the policy and its result on error[:data]" do
-            policy_class = Hubbado::Sequence::Controls::Policy.example(decision: :deny, action: :update)
+            policy_class = Hubbado::Sequence::Controls::Policy.example_class(decision: :deny, action: :update)
 
             check_policy = Hubbado::Sequence::Macros::Policy::Check.new
 
@@ -44,7 +44,7 @@ context "Hubbado" do
         end
 
         context "Substitute" do
-          policy_class = Hubbado::Sequence::Controls::Policy.example(decision: :permit, action: :update)
+          policy_class = Hubbado::Sequence::Controls::Policy.example_class(decision: :permit, action: :update)
 
           seq_class = Class.new do
             include Hubbado::Sequence::Sequencer

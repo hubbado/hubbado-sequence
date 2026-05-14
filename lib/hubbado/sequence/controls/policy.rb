@@ -16,11 +16,7 @@ module Hubbado
           def denied?; !@permitted; end
         end
 
-        def self.example(decision: :permit, action: :update)
-          klass_for(decision: decision, action: action)
-        end
-
-        def self.klass_for(decision:, action:)
+        def self.example_class(decision: :permit, action: :update)
           Class.new do
             attr_reader :user, :record
 
