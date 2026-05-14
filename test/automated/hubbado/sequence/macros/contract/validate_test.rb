@@ -79,7 +79,7 @@ context "Hubbado" do
           end
         end
 
-        context "from: nil (or omitted) — contract has been pre-deserialised" do
+        context "from: nil (or omitted) -- contract has been pre-deserialised" do
           test "validates without re-deserialising and returns ok when valid" do
             contract = Hubbado::Sequence::Controls::Contract.example(valid: true)
             ctx = Hubbado::Sequence::Ctx.build(contract: contract)
