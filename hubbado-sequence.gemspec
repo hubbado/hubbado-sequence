@@ -8,10 +8,11 @@ Gem::Specification.new do |s|
   s.authors = ["Hubbado Devs"]
   s.email = ["devs@hubbado.com"]
   s.homepage = "https://github.com/hubbado/hubbado-sequence"
+  s.license = "MIT"
 
-  s.metadata["allowed_push_host"] = "https://rubygems.pkg.github.com/hubbado"
-  s.metadata["github_repo"] = s.homepage
   s.metadata["homepage_uri"] = s.homepage
+  s.metadata["source_code_uri"] = s.homepage
+  s.metadata["changelog_uri"] = "#{s.homepage}/blob/master/CHANGELOG.md"
 
   s.require_paths = ["lib"]
   s.files = Dir.glob(%w[
