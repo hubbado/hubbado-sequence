@@ -293,46 +293,46 @@ as part of the same pipeline.
 
 The "find the record, build the contract, check the policy" shape is shared
 between an edit form and an update action — both need exactly that, and the
-update then validates and persists. Extract the shared part as a Present
-sequencer and nest it as a dependency:
+update then validates and persists. Define Present as a nested class on the
+outer sequencer so the two stay co-located:
 
 ```ruby
-class Seqs::PresentUser
-  include Hubbado::Sequence::Sequencer
-
-  configure :present   # so a parent can use `Seqs::PresentUser.configure(instance)`
-
-  dependency :find,           Macros::Model::Find
-  dependency :build_contract, Macros::Contract::Build
-  dependency :check_policy,   Macros::Policy::Check
-
-  def self.build
-    new.tap do |instance|
-      Macros::Model::Find.configure(instance)
-      Macros::Contract::Build.configure(instance)
-      Macros::Policy::Check.configure(instance)
-    end
-  end
-
-  def call(ctx)
-    pipeline(ctx) do |p|
-      p.invoke(:find,           User,                  as: :user)
-      p.invoke(:build_contract, Contracts::UpdateUser, :user)
-      p.invoke(:check_policy,   Policies::User,        :user, :update)
-    end
-  end
-end
-
 class Seqs::UpdateUser
+  class Present
+    include Hubbado::Sequence::Sequencer
+
+    configure :present   # so a parent can use `Present.configure(instance)`
+
+    dependency :find,           Macros::Model::Find
+    dependency :build_contract, Macros::Contract::Build
+    dependency :check_policy,   Macros::Policy::Check
+
+    def self.build
+      new.tap do |instance|
+        Macros::Model::Find.configure(instance)
+        Macros::Contract::Build.configure(instance)
+        Macros::Policy::Check.configure(instance)
+      end
+    end
+
+    def call(ctx)
+      pipeline(ctx) do |p|
+        p.invoke(:find,           User,                  as: :user)
+        p.invoke(:build_contract, Contracts::UpdateUser, :user)
+        p.invoke(:check_policy,   Policies::User,        :user, :update)
+      end
+    end
+  end
+
   include Hubbado::Sequence::Sequencer
 
-  dependency :present,  Seqs::PresentUser
+  dependency :present,  Present
   dependency :validate, Macros::Contract::Validate
   dependency :persist,  Macros::Contract::Persist
 
   def self.build
     new.tap do |instance|
-      Seqs::PresentUser.configure(instance)
+      Present.configure(instance)
       Macros::Contract::Validate.configure(instance)
       Macros::Contract::Persist.configure(instance)
     end
@@ -359,7 +359,7 @@ class UsersController < ApplicationController
   include Hubbado::Sequence::RunSequence
 
   def edit
-    run_sequence Seqs::PresentUser, params: params, current_user: current_user do |result|
+    run_sequence Seqs::UpdateUser::Present, params: params, current_user: current_user do |result|
       result.success       { |ctx| render :edit, locals: { contract: ctx[:contract] } }
       result.policy_failed { |_|   redirect_to root_path, alert: result.message }
       result.not_found     { |_|   render_404 }
@@ -421,7 +421,7 @@ configures the ones whose return matters.
 ### Substituting macros directly
 
 ```ruby
-RSpec.describe Seqs::PresentUser do
+RSpec.describe Seqs::UpdateUser::Present do
   it "loads the user, builds the contract, and passes the policy" do
     seq = described_class.new
     user     = User.new(id: 1, email: "old@example.com")
@@ -518,7 +518,7 @@ end
 left behind. `fail_with(**error)` returns a failed `Result` with the given
 error, short-circuiting the outer pipeline. The Update spec doesn't need
 to exercise Find / Build / Policy::Check directly — those live in
-PresentUser's spec, where they belong.
+`Seqs::UpdateUser::Present`'s spec, where they belong.
 
 ## Observability
 
