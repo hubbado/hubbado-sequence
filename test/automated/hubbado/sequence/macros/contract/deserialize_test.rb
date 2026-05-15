@@ -64,7 +64,7 @@ context "Hubbado" do
           end
           seq_class.dependency :deserialize_to_contract, Hubbado::Sequence::Macros::Contract::Deserialize
 
-          test "default behaviour is pass-through ok" do
+          test "default behaviour is pass-through success" do
             seq = seq_class.new
 
             result = seq.deserialize_to_contract.(Hubbado::Sequence::Ctx.new, from: :params)

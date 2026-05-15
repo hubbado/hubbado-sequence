@@ -112,7 +112,7 @@ context "Hubbado" do
           end
           seq_class.dependency :find, Hubbado::Sequence::Macros::Model::Find
 
-          test "default behaviour is pass-through ok with no ctx mutation" do
+          test "default behaviour is pass-through success with no ctx mutation" do
             seq = seq_class.new
 
             ctx = Hubbado::Sequence::Ctx.new

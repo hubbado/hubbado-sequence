@@ -171,7 +171,7 @@ Ruby.
 yields ctx if ok, returns self if failed. Considered, and we got far enough
 to question whether we even needed a custom `then` method. We could:
 
-- Use `Kernel#then` with explicit guards in every block (`r.ok? ? step.(r.ctx) : r`)
+- Use `Kernel#then` with explicit guards in every block (`r.success? ? step.(r.ctx) : r`)
   — works but ugly.
 - Use `reduce` with a lambda — pure Ruby but inflexible.
 - Raise on failure and `rescue` at the operation boundary — pragmatic but
@@ -706,7 +706,7 @@ been settled:
   Result-returning macros. Lenient mode now treats any non-failure return
   as success: only `Result.failure(...)` / `failure(ctx, code: ...)`
   short-circuits. The footgun (a block returning a User instance instead
-  of writing to ctx and returning ok) still surfaces — strict `Ctx`
+  of writing to ctx and returning success) still surfaces — strict `Ctx`
   raises `KeyError` at the next read site, with the failing step name
   in successful_steps — just one step later than the strict TypeError would
   have. Worth the trade for clean step bodies.

@@ -53,7 +53,7 @@ context "Hubbado" do
           end
           seq_class.dependency :check_policy, Hubbado::Sequence::Macros::Policy::Check
 
-          test "default behaviour is pass-through ok" do
+          test "default behaviour is pass-through success" do
             seq = seq_class.new
 
             result = seq.check_policy.(Hubbado::Sequence::Ctx.new, policy_class, :user, :update)

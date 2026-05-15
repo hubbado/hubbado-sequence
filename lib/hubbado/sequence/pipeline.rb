@@ -25,7 +25,7 @@ module Hubbado
 
       # `invoke(:name, *args, **kwargs)` calls a declared dependency on the
       # dispatcher: gets it via `dispatcher.send(name)` (the reader), then
-      # invokes it with `(ctx, *args, **kwargs)`. Same trail recording,
+      # invokes it with `(ctx, *args, **kwargs)`. Same step recording,
       # failure short-circuiting, and lenient return convention as `step`.
       #
       # Use this for any declared dependency — macros

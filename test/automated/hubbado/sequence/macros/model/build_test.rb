@@ -49,7 +49,7 @@ context "Hubbado" do
           end
           seq_class.dependency :build_record, Hubbado::Sequence::Macros::Model::Build
 
-          test "default behaviour is pass-through ok with no ctx mutation" do
+          test "default behaviour is pass-through success with no ctx mutation" do
             seq = seq_class.new
 
             ctx = Hubbado::Sequence::Ctx.new

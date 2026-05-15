@@ -109,7 +109,7 @@ context "Hubbado" do
           end
           seq_class.dependency :validate, Hubbado::Sequence::Macros::Contract::Validate
 
-          test "default behaviour is pass-through ok" do
+          test "default behaviour is pass-through success" do
             seq = seq_class.new
 
             result = seq.validate.(Hubbado::Sequence::Ctx.new, from: :params)

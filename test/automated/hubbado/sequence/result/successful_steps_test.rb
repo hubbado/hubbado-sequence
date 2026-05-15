@@ -29,6 +29,16 @@ context "Hubbado" do
           assert updated.successful_steps == %i[find_user check_policy]
           assert updated.ctx.equal?(result.ctx)
         end
+
+        test "with_successful_steps preserves the failure status and error on a failed result" do
+          result = Hubbado::Sequence::Result.failure({}, error: { code: :forbidden })
+
+          updated = result.with_successful_steps(%i[find_user])
+
+          assert updated.failure?
+          assert updated.error[:code] == :forbidden
+          assert updated.successful_steps == %i[find_user]
+        end
       end
     end
   end

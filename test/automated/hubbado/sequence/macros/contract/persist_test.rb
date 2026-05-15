@@ -38,7 +38,7 @@ context "Hubbado" do
           end
           seq_class.dependency :persist, Hubbado::Sequence::Macros::Contract::Persist
 
-          test "default behaviour is pass-through ok" do
+          test "default behaviour is pass-through success" do
             seq = seq_class.new
 
             result = seq.persist.(Hubbado::Sequence::Ctx.new)

@@ -419,8 +419,8 @@ end
 
 Inner writes (`ctx[:user]`, `ctx[:contract]`) are visible to outer steps —
 Present and Update share the same `Ctx`, so `:validate` and `:persist` see
-exactly what Present built. The outer successful_steps records `:present` as a single
-step; Present's inner steps stay opaque to the parent.
+exactly what Present built. The outer pipeline records `:present` as a single
+entry in `successful_steps`; Present's inner steps stay opaque to the parent.
 
 ## Result, success, failure
 
@@ -619,8 +619,8 @@ Sequencer Seqs::UpdateUser succeeded: find → build_contract → check_policy �
 Sequencer Seqs::UpdateUser failed at :check_policy (forbidden): find → build_contract
 ```
 
-Nested sequencer successful_steps are opaque to the parent: a parent's successful_steps shows
-`:present` as a single step, not the sub-steps inside Present.
+Nested sequencer steps are opaque to the parent: a parent's `successful_steps`
+lists `:present` once, not Present's inner sub-steps.
 `error[:step]` carries the inner step name when a nested sequencer fails.
 
 ## Standard error codes
