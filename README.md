@@ -58,7 +58,7 @@ exposes its dependencies cleanly, and `run_sequence` keeps the controller
 itself thin — branching to redirect, render, or set a flash based on the
 sequencer's outcome.
 
-Most controller actions don't contain much business logic anyway. They're
+Most controller actions shouldn't contain much business logic anyway. They're
 a short sequence of common steps — find a model, validate a contract, save
 something, redirect. The sequencer DSL is designed to make that high-level
 sequence compact and easy to scan, without trying to be the home for the
