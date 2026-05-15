@@ -1,15 +1,23 @@
 # hubbado-sequence
 
-A small framework for orchestrating units of business behaviour. The eventual
-replacement for Trailblazer operations at Hubbado, designed to coexist with
-them during migration.
+A small framework (about 200 lines of core code) for orchestrating the
+short sequences of common steps that controller actions usually boil
+down to — find a model, validate a contract, call a domain object, save
+something, redirect. A sequencer takes input, runs an ordered sequence
+of steps, and returns a `Result` carrying a success-or-failure flag, a
+structured error, and the working context that was built up during
+execution.
 
-A sequencer takes input, runs a sequence of steps, and returns a `Result`
-indicating success or failure plus the working context that was built up
-during execution.
+The DSL is deliberately minimal: every step is a regular method, every
+dependency is a regular Ruby object, and control flow uses regular Ruby
+(`if`, `unless`, `case`) rather than a conditional DSL. The framework
+gets out of the way once you've described the high-level sequence; the
+real work lives in the plain-Ruby objects the steps call.
 
-The full design rationale lives in [`docs/design.md`](docs/design.md). This
-README is a quick tour.
+Built with Rails in mind but framework-agnostic — the core has no Rails
+dependency, and the included `RunSequence` mixin works in any host
+(controllers, jobs, scripts). The full design rationale lives in
+[`docs/design.md`](docs/design.md). This README is a quick tour.
 
 ## Installation
 
