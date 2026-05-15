@@ -16,7 +16,7 @@ context "Hubbado" do
             ctx = Hubbado::Sequence::Ctx.build(params: { id: 1 })
             result = find.(ctx, model, as: :user)
 
-            assert result.ok?
+            assert result.success?
             assert ctx[:user] == :a_user
           end
 
@@ -59,7 +59,7 @@ context "Hubbado" do
             ctx = Hubbado::Sequence::Ctx.build(params: { user_id: 42 })
             result = find.(ctx, model, as: :user, id_key: %i[params user_id])
 
-            assert result.ok?
+            assert result.success?
             assert ctx[:user] == :a_user
           end
         end
@@ -74,7 +74,7 @@ context "Hubbado" do
             ctx = Hubbado::Sequence::Ctx.build(user_id: 7)
             result = find.(ctx, model, as: :user, id_key: :user_id)
 
-            assert result.ok?
+            assert result.success?
             assert ctx[:user] == :a_user
           end
         end
@@ -112,13 +112,13 @@ context "Hubbado" do
           end
           seq_class.dependency :find, Hubbado::Sequence::Macros::Model::Find
 
-          test "default behaviour is pass-through ok with no ctx mutation" do
+          test "default behaviour is pass-through success with no ctx mutation" do
             seq = seq_class.new
 
             ctx = Hubbado::Sequence::Ctx.new
             result = seq.find.(ctx, model, as: :user)
 
-            assert result.ok?
+            assert result.success?
             refute ctx.key?(:user)
           end
 
@@ -129,7 +129,7 @@ context "Hubbado" do
             ctx = Hubbado::Sequence::Ctx.new
             result = seq.find.(ctx, model, as: :user)
 
-            assert result.ok?
+            assert result.success?
             assert ctx[:user] == :fake_user
           end
 

@@ -14,9 +14,9 @@ module Hubbado
             contract = ctx[:contract]
 
             if contract.save
-              Result.ok(ctx)
+              Result.success(ctx)
             else
-              Result.fail(ctx, error: { code: :persist_failed })
+              Result.failure(ctx, error: { code: :persist_failed })
             end
           end
 
@@ -34,9 +34,9 @@ module Hubbado
             end
 
             record def call(ctx)
-              return Result.fail(ctx, error: @configured_error) if @configured_error
+              return Result.failure(ctx, error: @configured_error) if @configured_error
 
-              Result.ok(ctx)
+              Result.success(ctx)
             end
 
             def persisted?(**kwargs)

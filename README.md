@@ -24,9 +24,8 @@ Then run `bundle install`.
 ## Requirements
 
 - Ruby >= 3.3
-- [evt-dependency](https://github.com/eventide-project/dependency) — powers
-  the injectable macro / nested-sequencer pattern (declared as a runtime
-  dependency of the gem).
+- [evt-dependency](https://github.com/eventide-project/dependency) —
+  dependency injection (declared as a runtime dependency of the gem).
 
 Optional, depending on which macros you use:
 
@@ -39,29 +38,59 @@ Optional, depending on which macros you use:
 
 ## Philosophy
 
-Sequencers sit at the controller boundary. They receive input from a Rails
-action, orchestrate the work, and hand a `Result` back. The sequencer's job
-is **orchestration only** — it should not contain business logic itself. Real
-behaviour lives in the models, contracts, policies, and domain objects it
-calls.
+Sequencers sit at the controller boundary. They receive input, orchestrate
+the work, and hand a `Result` back. The sequencer's job is **orchestration
+only** — it should not contain business logic itself. Real behaviour lives
+in the models, contracts, policies, and domain objects it calls.
 
-Nesting is intentionally shallow. The only nesting we use in practice is a
-`Present` sequencer inside an `Update` sequencer: Present loads the record,
-builds the contract, and checks the policy; Update calls Present and then
-validates and persists. Chains longer than one level are rare enough to be a
-signal that something should be a plain Ruby object instead.
+The framework is built with Rails in mind but doesn't require it — the core
+of the gem has no Rails dependency, and `Hubbado::Sequence::RunSequence` is
+a plain mixin that works in any host that drives a sequencer from a fixed
+lifecycle (Sinatra actions, Rack handlers, Hanami actions, job workers).
+ActiveRecord and Reform are only needed if you use the macros that wrap
+them.
 
-The framework uses [evt-dependency](https://github.com/eventide-project/dependency),
-which means every macro and every nested sequencer is an injectable
-dependency. Calling `.new` on a sequencer installs substitutes for all of
-them, so unit tests exercise the sequencer's orchestration logic — what runs,
-in what order, what short-circuits — without hitting the database, the policy
-gem, or Reform. The substitutes default to pass-through `ok`, so a test only
-configures the outcomes that matter for the scenario it's verifying.
+In a Rails context the gem solves a specific pain: a controller action is
+hard to unit-test because the framework owns its lifecycle, and that gets
+worse the moment you want dependency injection. Sequencers lift the
+testable work *out* of the controller into a plain Ruby object that
+exposes its dependencies cleanly, and `run_sequence` keeps the controller
+itself thin — branching to redirect, render, or set a flash based on the
+sequencer's outcome.
 
-Integration coverage (using `.build` to wire real collaborators) is reserved
-for the controller boundary — one happy-path integration test per sequencer
-is usually enough to confirm the wiring is correct.
+Most controller actions shouldn't contain much business logic anyway. They're
+a short sequence of common steps — find a model, validate a contract, save
+something, redirect. The sequencer DSL is designed to make that high-level
+sequence compact and easy to scan, without trying to be the home for the
+business logic underneath. Regular Ruby is already excellent at that.
+
+The DSL is deliberately minimal. A sequencer's `pipeline(ctx)` block is a
+small set of conventions around how `ctx` flows and what each step
+returns — nothing more. Steps are regular methods on a regular Ruby
+object, dependencies are regular Ruby objects, and the pipeline lets you
+use regular Ruby `if` / `unless` / `case` for control flow rather than
+inventing a conditional DSL. Where the framework can get out of your way,
+it does.
+
+The gem doesn't impose a nesting depth, but in practice we keep nesting
+very shallow — typically one level. The only nesting we use is a `Present`
+sequencer inside an `Update` sequencer: Present loads the record, builds
+the contract, and checks the policy; Update calls Present and then
+validates and persists. Anything deeper is a signal that a chunk of the
+work should be a plain Ruby object instead.
+
+The framework uses [evt-dependency](https://github.com/eventide-project/dependency)
+for dependency injection. Every macro and every nested sequencer is an
+injected dependency, which means calling `.new` on a sequencer installs
+substitutes for all of them. Unit tests exercise the sequencer's
+orchestration logic — what runs, in what order, what short-circuits —
+without hitting the database, the policy gem, or Reform. The substitutes
+default to pass-through success, so a test only configures the outcomes
+that matter for the scenario it's verifying.
+
+Integration coverage (using `.build` to wire real collaborators) is
+reserved for the controller boundary — one happy-path integration test
+per sequencer is usually enough to confirm the wiring is correct.
 
 ## Quick start
 
@@ -139,11 +168,14 @@ it directly.
 ## Built-in macros
 
 Each macro is a dependency declared on a sequencer with `dependency :name, Macros::...`
-and wired via `.configure(instance)` in `.build`.
+and wired via `.configure(instance)` in `.build`. The built-in macros are
+grouped by the gem they expect to be available.
 
-The model macros are designed to work with ActiveRecord models.
+### ActiveRecord macros
 
-### Model::Find
+Designed to work with [ActiveRecord](https://github.com/rails/rails) models.
+
+#### Model::Find
 
 Fetches a record using `model.find_by(id:)` and writes it to `ctx[as]`.
 
@@ -159,7 +191,7 @@ p.invoke(:find, User, as: :user, id_key: %i[params id])  # nested path (default)
 | **Writes** | `ctx[as]` — the found record |
 | **Fails** | `:not_found` when `find_by` returns nil |
 
-### Model::Build
+#### Model::Build
 
 Instantiates a new record and writes it to `ctx[as]`.
 
@@ -174,9 +206,12 @@ p.invoke(:build_record, User, as: :user, attributes: { role: :admin })
 | **Writes** | `ctx[as]` — the new instance |
 | **Fails** | never |
 
-The contract macros are designed to work with [Reform](https://github.com/trailblazer/reform) form objects.
+### Reform macros
 
-### Contract::Build
+Designed to work with [Reform](https://github.com/trailblazer/reform) form
+objects (contracts).
+
+#### Contract::Build
 
 Wraps a model in a contract and writes it to `ctx[:contract]`.
 
@@ -191,7 +226,7 @@ p.invoke(:build_contract, Contracts::CreateUser)         # no model
 | **Writes** | `ctx[:contract]` |
 | **Fails** | never |
 
-### Contract::Deserialize
+#### Contract::Deserialize
 
 Deserializes params into the contract via `contract.deserialize(params)`.
 
@@ -206,7 +241,7 @@ p.invoke(:deserialize_to_contract, from: :raw_params)
 | **Writes** | nothing (mutates the contract in place) |
 | **Fails** | never (no-op when the `from:` path is absent) |
 
-### Contract::Validate
+#### Contract::Validate
 
 Validates the contract via `contract.validate(params)` and checks `errors`.
 
@@ -221,7 +256,7 @@ p.invoke(:validate)   # contract already deserialized; passes empty params
 | **Writes** | nothing (populates `contract.errors` on invalid) |
 | **Fails** | `:validation_failed` when `contract.errors` is non-empty |
 
-### Contract::Persist
+#### Contract::Persist
 
 Saves the contract via `contract.save`.
 
@@ -235,7 +270,12 @@ p.invoke(:persist)
 | **Writes** | nothing |
 | **Fails** | `:persist_failed` when `save` returns false |
 
-### Policy::Check
+### hubbado-policy macros
+
+Designed to work with the
+[hubbado-policy](https://github.com/hubbado/hubbado-policy) gem.
+
+#### Policy::Check
 
 Builds a policy and calls the named action to authorise the operation.
 
@@ -243,9 +283,9 @@ Builds a policy and calls the named action to authorise the operation.
 p.invoke(:check_policy, Policies::User, :user, :update)
 ```
 
-Designed to work with the [hubbado-policy](https://github.com/hubbado/hubbado-policy) gem.
-The policy class must respond to `.build(current_user, record)`; the instance must
-respond to the action method and return an object with `permitted?`.
+The policy class must respond to `.build(current_user, record)`; the
+instance must respond to the action method and return an object with
+`permitted?`.
 
 | | |
 |---|---|
@@ -293,46 +333,46 @@ as part of the same pipeline.
 
 The "find the record, build the contract, check the policy" shape is shared
 between an edit form and an update action — both need exactly that, and the
-update then validates and persists. Extract the shared part as a Present
-sequencer and nest it as a dependency:
+update then validates and persists. Define Present as a nested class on the
+outer sequencer so the two stay co-located:
 
 ```ruby
-class Seqs::PresentUser
-  include Hubbado::Sequence::Sequencer
-
-  configure :present   # so a parent can use `Seqs::PresentUser.configure(instance)`
-
-  dependency :find,           Macros::Model::Find
-  dependency :build_contract, Macros::Contract::Build
-  dependency :check_policy,   Macros::Policy::Check
-
-  def self.build
-    new.tap do |instance|
-      Macros::Model::Find.configure(instance)
-      Macros::Contract::Build.configure(instance)
-      Macros::Policy::Check.configure(instance)
-    end
-  end
-
-  def call(ctx)
-    pipeline(ctx) do |p|
-      p.invoke(:find,           User,                  as: :user)
-      p.invoke(:build_contract, Contracts::UpdateUser, :user)
-      p.invoke(:check_policy,   Policies::User,        :user, :update)
-    end
-  end
-end
-
 class Seqs::UpdateUser
+  class Present
+    include Hubbado::Sequence::Sequencer
+
+    configure :present   # so a parent can use `Present.configure(instance)`
+
+    dependency :find,           Macros::Model::Find
+    dependency :build_contract, Macros::Contract::Build
+    dependency :check_policy,   Macros::Policy::Check
+
+    def self.build
+      new.tap do |instance|
+        Macros::Model::Find.configure(instance)
+        Macros::Contract::Build.configure(instance)
+        Macros::Policy::Check.configure(instance)
+      end
+    end
+
+    def call(ctx)
+      pipeline(ctx) do |p|
+        p.invoke(:find,           User,                  as: :user)
+        p.invoke(:build_contract, Contracts::UpdateUser, :user)
+        p.invoke(:check_policy,   Policies::User,        :user, :update)
+      end
+    end
+  end
+
   include Hubbado::Sequence::Sequencer
 
-  dependency :present,  Seqs::PresentUser
+  dependency :present,  Present
   dependency :validate, Macros::Contract::Validate
   dependency :persist,  Macros::Contract::Persist
 
   def self.build
     new.tap do |instance|
-      Seqs::PresentUser.configure(instance)
+      Present.configure(instance)
       Macros::Contract::Validate.configure(instance)
       Macros::Contract::Persist.configure(instance)
     end
@@ -359,7 +399,7 @@ class UsersController < ApplicationController
   include Hubbado::Sequence::RunSequence
 
   def edit
-    run_sequence Seqs::PresentUser, params: params, current_user: current_user do |result|
+    run_sequence Seqs::UpdateUser::Present, params: params, current_user: current_user do |result|
       result.success       { |ctx| render :edit, locals: { contract: ctx[:contract] } }
       result.policy_failed { |_|   redirect_to root_path, alert: result.message }
       result.not_found     { |_|   render_404 }
@@ -379,15 +419,15 @@ end
 
 Inner writes (`ctx[:user]`, `ctx[:contract]`) are visible to outer steps —
 Present and Update share the same `Ctx`, so `:validate` and `:persist` see
-exactly what Present built. The outer trail records `:present` as a single
-step; Present's inner steps stay opaque to the parent.
+exactly what Present built. The outer pipeline records `:present` as a single
+entry in `successful_steps`; Present's inner steps stay opaque to the parent.
 
 ## Result, success, failure
 
 A step is **successful unless it explicitly returns a failed `Result`**. Any
-other return value (`nil`, `false`, a model, `Result.ok(...)`) is taken as
+other return value (`nil`, `false`, a model, `Result.success(...)`) is taken as
 success and the pipeline continues with the same `ctx`. Only
-`Result.fail(...)` or the `failure(ctx, code: ...)` helper short-circuits.
+`Result.failure(...)` or the `failure(ctx, code: ...)` helper short-circuits.
 
 ```ruby
 def call(ctx)
@@ -401,7 +441,7 @@ private
 
 def must_be_premium(ctx)
   return failure(ctx, code: :forbidden) unless ctx[:user].premium?
-  # implicit ok if we get here
+  # implicit success if we get here
 end
 ```
 
@@ -412,46 +452,65 @@ same error attrs as the underlying error hash (`code:`, `i18n_key:`,
 
 ## Testing
 
-`described_class.new` returns a sequencer with all dependencies installed as
-substitutes. Tests configure the substitutes for the scenario at hand.
-`described_class.build` runs the production wiring (the real macros).
-Substitutes default to pass-through `Result.ok(ctx)` so a test only
+The gem doesn't prescribe a testing library — sequencers, macros, and
+substitutes are plain Ruby objects that work with whatever you use.
+The examples below are written in
+[TestBench](https://github.com/test-bench/test-bench) (what we use at
+Hubbado), but the same patterns translate directly to RSpec, Minitest,
+or any other framework.
+
+`Seqs::UpdateUser.new` returns a sequencer with all dependencies installed
+as substitutes. Tests configure the substitutes for the scenario at hand.
+`Seqs::UpdateUser.build` runs the production wiring (the real macros).
+Substitutes default to pass-through `Result.success(ctx)` so a test only
 configures the ones whose return matters.
 
 ### Substituting macros directly
 
 ```ruby
-RSpec.describe Seqs::PresentUser do
-  it "loads the user, builds the contract, and passes the policy" do
-    seq = described_class.new
-    user     = User.new(id: 1, email: "old@example.com")
-    contract = Contracts::UpdateUser.new(user)
-    seq.find.succeed_with(user)
-    seq.build_contract.succeed_with(contract)
+context "Seqs::UpdateUser::Present happy path" do
+  user     = User.new(id: 1, email: "old@example.com")
+  contract = Contracts::UpdateUser.new(user)
 
-    result = seq.(
-      params:       { id: 1 },
-      current_user: User.new
-    )
+  seq = Seqs::UpdateUser::Present.new
+  seq.find.succeed_with(user)
+  seq.build_contract.succeed_with(contract)
 
-    expect(result).to be_ok
-    expect(seq.find.fetched?(as: :user)).to be true
-    expect(seq.build_contract.built?).to be true
-    expect(seq.check_policy.checked?).to be true
+  result = seq.(params: { id: 1 }, current_user: User.new)
+
+  test "Is success" do
+    assert(result.success?)
   end
 
-  it "fails with :not_found when the user doesn't exist" do
-    seq = described_class.new
-    seq.find.fail_with(code: :not_found)
+  test "Fetched the user from ctx[:user]" do
+    assert(seq.find.fetched?(as: :user))
+  end
 
-    result = seq.(
-      params:       { id: 999 },
-      current_user: User.new
-    )
+  test "Built the contract" do
+    assert(seq.build_contract.built?)
+  end
 
-    expect(result.error[:code]).to eq(:not_found)
-    expect(seq.build_contract.built?).to be false
-    expect(seq.check_policy.checked?).to be false
+  test "Checked the policy" do
+    assert(seq.check_policy.checked?)
+  end
+end
+
+context "Seqs::UpdateUser::Present when the user is not found" do
+  seq = Seqs::UpdateUser::Present.new
+  seq.find.fail_with(code: :not_found)
+
+  result = seq.(params: { id: 999 }, current_user: User.new)
+
+  test "Fails with :not_found" do
+    assert(result.error[:code] == :not_found)
+  end
+
+  test "Does not build the contract" do
+    refute(seq.build_contract.built?)
+  end
+
+  test "Does not check the policy" do
+    refute(seq.check_policy.checked?)
   end
 end
 ```
@@ -464,84 +523,104 @@ Every sequencer ships a default `Substitute` module (installed by
 short-circuit a nested sequencer without reaching into its inner pieces:
 
 ```ruby
-RSpec.describe Seqs::UpdateUser do
-  it "updates the user when present succeeds" do
-    seq = described_class.new
+context "Seqs::UpdateUser happy path" do
+  user     = User.new(id: 1, email: "old@example.com")
+  contract = Contracts::UpdateUser.new(user)
 
-    user     = User.new(id: 1, email: "old@example.com")
-    contract = Contracts::UpdateUser.new(user)
-    seq.present.succeed_with(user: user, contract: contract)
+  seq = Seqs::UpdateUser.new
+  seq.present.succeed_with(user: user, contract: contract)
 
-    result = seq.(
-      params:       { user: { email: "new@example.com" } },
-      current_user: User.new
-    )
+  result = seq.(
+    params:       { user: { email: "new@example.com" } },
+    current_user: User.new
+  )
 
-    expect(result).to be_ok
-    expect(seq.present.called?).to be true
-    expect(seq.persist.persisted?).to be true
+  test "Is success" do
+    assert(result.success?)
   end
 
-  it "stops when present denies access" do
-    seq = described_class.new
-    seq.present.fail_with(code: :forbidden)
-
-    result = seq.(
-      params:       { user: {} },
-      current_user: User.new
-    )
-
-    expect(result.failure?).to be true
-    expect(result.error[:code]).to eq(:forbidden)
-    expect(seq.validate.validated?).to be false
-    expect(seq.persist.persisted?).to be false
+  test "Calls Present" do
+    assert(seq.present.called?)
   end
 
-  it "stops when present cannot find the record" do
-    seq = described_class.new
-    seq.present.fail_with(code: :not_found)
+  test "Persists the contract" do
+    assert(seq.persist.persisted?)
+  end
+end
 
-    result = seq.(
-      params:       { id: 999, user: {} },
-      current_user: User.new
-    )
+context "Seqs::UpdateUser when Present denies access" do
+  seq = Seqs::UpdateUser.new
+  seq.present.fail_with(code: :forbidden)
 
-    expect(result.error[:code]).to eq(:not_found)
-    expect(seq.validate.validated?).to be false
-    expect(seq.persist.persisted?).to be false
+  result = seq.(params: { user: {} }, current_user: User.new)
+
+  test "Fails" do
+    assert(result.failure?)
+  end
+
+  test "Fails with :forbidden" do
+    assert(result.error[:code] == :forbidden)
+  end
+
+  test "Does not validate" do
+    refute(seq.validate.validated?)
+  end
+
+  test "Does not persist" do
+    refute(seq.persist.persisted?)
+  end
+end
+
+context "Seqs::UpdateUser when Present cannot find the record" do
+  seq = Seqs::UpdateUser.new
+  seq.present.fail_with(code: :not_found)
+
+  result = seq.(params: { id: 999, user: {} }, current_user: User.new)
+
+  test "Fails with :not_found" do
+    assert(result.error[:code] == :not_found)
+  end
+
+  test "Does not validate" do
+    refute(seq.validate.validated?)
+  end
+
+  test "Does not persist" do
+    refute(seq.persist.persisted?)
   end
 end
 ```
 
 `succeed_with(**ctx_writes)` writes the given keys into `ctx` and returns
-`Result.ok(ctx)`, so the outer steps see what the real Present would have
+`Result.success(ctx)`, so the outer steps see what the real Present would have
 left behind. `fail_with(**error)` returns a failed `Result` with the given
 error, short-circuiting the outer pipeline. The Update spec doesn't need
 to exercise Find / Build / Policy::Check directly — those live in
-PresentUser's spec, where they belong.
+`Seqs::UpdateUser::Present`'s spec, where they belong.
 
 ## Observability
 
-Every `Result` carries a **trail** — the list of step names that completed
-successfully, in order. On failure, the failing step is *not* in the trail;
-it's tagged on `error[:step]` instead.
+Every `Result` carries **successful_steps** — the list of step names that
+completed successfully, in order. On failure, the failing step is *not* in
+`successful_steps`; it's tagged on `error[:step]` instead.
 
 ```ruby
-result.trail         # => [:find, :build_contract, :check_policy, :validate, :persist]  # success
-result.trail         # => [:find, :build_contract]                                       # failed at :check_policy
-result.error[:step]  # => :check_policy
+result.successful_steps  # => [:find, :build_contract, :check_policy, :validate, :persist]  # success
+result.successful_steps  # => [:find, :build_contract]                                       # failed at :check_policy
+result.error[:step]      # => :check_policy
 ```
 
 When invoked via `run_sequence`, the dispatcher logs a single line per
-invocation summarising the trail and (on failure) where it stopped:
+invocation summarising the successful steps and (on failure) where it
+stopped:
 
 ```
 Sequencer Seqs::UpdateUser succeeded: find → build_contract → check_policy → validate → persist
 Sequencer Seqs::UpdateUser failed at :check_policy (forbidden): find → build_contract
 ```
 
-Nested sequencer trails are opaque to the parent: a parent's trail shows
-`:present` as a single step, not the sub-steps inside Present.
+Nested sequencer steps are opaque to the parent: a parent's `successful_steps`
+lists `:present` once, not Present's inner sub-steps.
 `error[:step]` carries the inner step name when a nested sequencer fails.
 
 ## Standard error codes
@@ -563,4 +642,4 @@ Sequencers can mint their own codes for domain-specific failures
 
 ## License
 
-Internal Hubbado gem.
+Released under the [MIT License](LICENSE).

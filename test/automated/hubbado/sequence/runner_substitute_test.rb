@@ -12,7 +12,7 @@ context "Hubbado" do
           include Hubbado::Sequence::Sequencer
           define_singleton_method(:name) { name }
           define_singleton_method(:build) { new }
-          define_method(:call) { |ctx| Hubbado::Sequence::Result.ok(ctx) }
+          define_method(:call) { |ctx| Hubbado::Sequence::Result.success(ctx) }
         end
       }
 

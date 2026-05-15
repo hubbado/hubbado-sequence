@@ -15,7 +15,7 @@ module Hubbado
 
             ctx[:contract].deserialize(params) if params
 
-            Result.ok(ctx)
+            Result.success(ctx)
           end
 
           module Substitute
@@ -27,9 +27,9 @@ module Hubbado
             end
 
             record def call(ctx, from:)
-              return Result.fail(ctx, error: @configured_error) if @configured_error
+              return Result.failure(ctx, error: @configured_error) if @configured_error
 
-              Result.ok(ctx)
+              Result.success(ctx)
             end
 
             def deserialized?(**kwargs)

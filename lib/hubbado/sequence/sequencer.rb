@@ -34,12 +34,12 @@ module Hubbado
           end
 
           record def call(ctx)
-            return ::Hubbado::Sequence::Result.fail(ctx, error: @configured_error) if @configured_error
+            return ::Hubbado::Sequence::Result.failure(ctx, error: @configured_error) if @configured_error
 
             if @configured_writes
               @configured_writes.each { |k, v| ctx[k] = v }
             end
-            ::Hubbado::Sequence::Result.ok(ctx)
+            ::Hubbado::Sequence::Result.success(ctx)
           end
 
           def called?(**kwargs)
@@ -83,7 +83,7 @@ module Hubbado
       end
 
       def failure(ctx, **error_attrs)
-        Result.fail(ctx, error: error_attrs, i18n_scope: i18n_scope)
+        Result.failure(ctx, error: error_attrs, i18n_scope: i18n_scope)
       end
 
       # Builds a Pipeline that auto-dispatches blockless `step(:foo)` calls to

@@ -77,7 +77,7 @@ context "Hubbado" do
         )
 
         test "the outer pipeline succeeds" do
-          assert result.ok?
+          assert result.success?
         end
 
         test "the inner sequencer's writes are visible to outer steps" do
@@ -92,8 +92,8 @@ context "Hubbado" do
           assert result.ctx[:contract].validated_with == { name: "Updated" }
         end
 
-        test "outer trail is opaque to the inner sequencer's steps" do
-          assert result.trail == %i[present validate persist]
+        test "outer successful_steps is opaque to the inner sequencer's steps" do
+          assert result.successful_steps == %i[present validate persist]
         end
       end
 
@@ -160,8 +160,8 @@ context "Hubbado" do
           assert result.error[:code] == :forbidden
         end
 
-        test "outer trail stops at the nested step name (opaque)" do
-          assert result.trail == []
+        test "outer successful_steps stops at the nested step name (opaque)" do
+          assert result.successful_steps == []
         end
 
         test "error[:step] reflects the outer step that ran the nested sequencer" do
@@ -194,7 +194,7 @@ context "Hubbado" do
           ctx = Hubbado::Sequence::Ctx.build(params: { id: 1, user: { name: "x" } }, current_user: :alice)
           result = seq.(ctx)
 
-          assert result.ok?
+          assert result.success?
           assert result.ctx[:user].equal?(fake_user)
           assert result.ctx[:contract].equal?(fake_contract)
           assert seq.present.called?

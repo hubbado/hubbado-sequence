@@ -16,7 +16,7 @@ context "Hubbado" do
 
             result = validate.(ctx, from: %i[params user])
 
-            assert result.ok?
+            assert result.success?
             assert contract.validated_with == { name: "Alice" }
           end
         end
@@ -58,7 +58,7 @@ context "Hubbado" do
 
             result = validate.(ctx, from: :user_attributes)
 
-            assert result.ok?
+            assert result.success?
             assert contract.validated_with == { name: "Alice" }
           end
         end
@@ -86,7 +86,7 @@ context "Hubbado" do
 
             result = validate.(ctx)
 
-            assert result.ok?
+            assert result.success?
             assert contract.validated_with == {}
           end
 
@@ -109,12 +109,12 @@ context "Hubbado" do
           end
           seq_class.dependency :validate, Hubbado::Sequence::Macros::Contract::Validate
 
-          test "default behaviour is pass-through ok" do
+          test "default behaviour is pass-through success" do
             seq = seq_class.new
 
             result = seq.validate.(Hubbado::Sequence::Ctx.new, from: :params)
 
-            assert result.ok?
+            assert result.success?
           end
 
           test "succeed_with takes no args; validation passes" do
@@ -123,7 +123,7 @@ context "Hubbado" do
 
             result = seq.validate.(Hubbado::Sequence::Ctx.new, from: :params)
 
-            assert result.ok?
+            assert result.success?
           end
 
           test "fail_with(**error) returns a failed result" do

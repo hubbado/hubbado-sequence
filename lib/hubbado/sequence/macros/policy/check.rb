@@ -18,9 +18,9 @@ module Hubbado
             policy_result = policy_instance.public_send(action)
 
             if policy_result.permitted?
-              Result.ok(ctx)
+              Result.success(ctx)
             else
-              Result.fail(
+              Result.failure(
                 ctx,
                 error: {
                   code: :forbidden,
@@ -49,9 +49,9 @@ module Hubbado
                   "Macros::Policy::Check substitute: #{policy} does not declare action :#{action}"
               end
 
-              return Result.fail(ctx, error: @configured_error) if @configured_error
+              return Result.failure(ctx, error: @configured_error) if @configured_error
 
-              Result.ok(ctx)
+              Result.success(ctx)
             end
 
             def checked?(**kwargs)

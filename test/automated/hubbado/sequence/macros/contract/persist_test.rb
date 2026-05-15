@@ -13,7 +13,7 @@ context "Hubbado" do
 
             result = persist.(ctx)
 
-            assert result.ok?
+            assert result.success?
             assert contract.saved
           end
         end
@@ -38,12 +38,12 @@ context "Hubbado" do
           end
           seq_class.dependency :persist, Hubbado::Sequence::Macros::Contract::Persist
 
-          test "default behaviour is pass-through ok" do
+          test "default behaviour is pass-through success" do
             seq = seq_class.new
 
             result = seq.persist.(Hubbado::Sequence::Ctx.new)
 
-            assert result.ok?
+            assert result.success?
           end
 
           test "succeed_with takes no args; persistence passes" do
@@ -52,7 +52,7 @@ context "Hubbado" do
 
             result = seq.persist.(Hubbado::Sequence::Ctx.new)
 
-            assert result.ok?
+            assert result.success?
           end
 
           test "fail_with(**error) returns a failed result" do

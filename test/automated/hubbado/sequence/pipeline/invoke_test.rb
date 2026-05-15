@@ -41,7 +41,7 @@ context "Hubbado" do
         result = seq_class.(params: { id: 1 })
 
         test "succeeds" do
-          assert result.ok?
+          assert result.success?
         end
 
         test "forwards positional args to the dependency call" do
@@ -54,8 +54,8 @@ context "Hubbado" do
           assert result.ctx[:contract].is_a?(contract_class)
         end
 
-        test "records the dependency names in the trail" do
-          assert result.trail == %i[find build_contract]
+        test "records the dependency names in successful_steps" do
+          assert result.successful_steps == %i[find build_contract]
         end
       end
 
@@ -73,8 +73,8 @@ context "Hubbado" do
           assert result.error[:step] == :find
         end
 
-        test "trail reflects what completed before the failure" do
-          assert result.trail == []
+        test "successful_steps reflects what completed before the failure" do
+          assert result.successful_steps == []
         end
 
         test "subsequent invocations are not run" do
@@ -116,8 +116,8 @@ context "Hubbado" do
 
         test "non-Result returns from an invoked dependency are treated as success" do
           result = seq.()
-          assert result.ok?
-          assert result.trail == [:returns_nil]
+          assert result.success?
+          assert result.successful_steps == [:returns_nil]
         end
       end
 

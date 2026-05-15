@@ -34,39 +34,39 @@ module Hubbado
         end
 
         def success
-          return unless @result.ok?
+          return unless @result.success?
           execute { yield(@result.ctx) }
-          logger.info("Sequencer #{@sequencer_class.name} succeeded: #{trail_summary}")
+          logger.info("Sequencer #{@sequencer_class.name} succeeded: #{steps_summary}")
         end
 
         def policy_failed
           return unless code == :forbidden
           execute { yield(@result.ctx) }
-          logger.info("Sequencer #{@sequencer_class.name} policy failed at #{step_label} (#{code}): #{trail_summary}")
+          logger.info("Sequencer #{@sequencer_class.name} policy failed at #{step_label} (#{code}): #{steps_summary}")
         end
 
         def not_found
           return unless code == :not_found
           execute { yield(@result.ctx) }
-          logger.info("Sequencer #{@sequencer_class.name} not found at #{step_label}: #{trail_summary}")
+          logger.info("Sequencer #{@sequencer_class.name} not found at #{step_label}: #{steps_summary}")
         end
 
         def validation_failed
           return unless code == :validation_failed
           execute { yield(@result.ctx) }
-          logger.info("Sequencer #{@sequencer_class.name} validation failed at #{step_label}: #{trail_summary}")
+          logger.info("Sequencer #{@sequencer_class.name} validation failed at #{step_label}: #{steps_summary}")
         end
 
         # otherwise deliberately does not catch policy denials or not_found —
         # those have their own required handlers.
         def otherwise
-          return if @result.ok?
+          return if @result.success?
           return if code == :forbidden
           return if code == :not_found
           return if @handled
 
           execute { yield(@result.ctx) }
-          logger.info("Sequencer #{@sequencer_class.name} failed at #{step_label} (#{code}): #{trail_summary}")
+          logger.info("Sequencer #{@sequencer_class.name} failed at #{step_label} (#{code}): #{steps_summary}")
         end
 
         def code
@@ -74,7 +74,7 @@ module Hubbado
         end
 
         def handled?
-          @result.ok? || @handled
+          @result.success? || @handled
         end
 
         def enforce_safety_nets!
@@ -96,7 +96,7 @@ module Hubbado
         end
 
         def log_unhandled
-          logger.error("Sequencer #{@sequencer_class.name} failed unhandled at #{step_label} (#{code}): #{trail_summary}")
+          logger.error("Sequencer #{@sequencer_class.name} failed unhandled at #{step_label} (#{code}): #{steps_summary}")
         end
 
         private
@@ -106,8 +106,8 @@ module Hubbado
           @returned = yield
         end
 
-        def trail_summary
-          @result.trail.empty? ? "(no steps)" : @result.trail.map(&:to_s).join(" → ")
+        def steps_summary
+          @result.successful_steps.empty? ? "(no steps)" : @result.successful_steps.map(&:to_s).join(" → ")
         end
 
         def step_label
@@ -173,9 +173,9 @@ module Hubbado
 
           if outcome[:kind] == :success
             outcome[:ctx_writes].each { |key, value| ctx[key] = value }
-            Hubbado::Sequence::Result.ok(ctx)
+            Hubbado::Sequence::Result.success(ctx)
           else
-            Hubbado::Sequence::Result.fail(ctx, error: outcome[:error])
+            Hubbado::Sequence::Result.failure(ctx, error: outcome[:error])
           end
         end
       end

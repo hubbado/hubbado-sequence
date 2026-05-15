@@ -35,11 +35,11 @@ context "Hubbado" do
 
         dispatcher_ok = -> {
           Class.new do
-            define_method(:before)      { |ctx| ctx[:before] = true; Hubbado::Sequence::Result.ok(ctx) }
-            define_method(:inside)      { |ctx| ctx[:inside] = true; Hubbado::Sequence::Result.ok(ctx) }
-            define_method(:after)       { |ctx| ctx[:after]  = true; Hubbado::Sequence::Result.ok(ctx) }
-            define_method(:fail_inside) { |ctx| Hubbado::Sequence::Result.fail(ctx, error: { code: :boom }) }
-            define_method(:fail_first)  { |ctx| Hubbado::Sequence::Result.fail(ctx, error: { code: :nope }) }
+            define_method(:before)      { |ctx| ctx[:before] = true; Hubbado::Sequence::Result.success(ctx) }
+            define_method(:inside)      { |ctx| ctx[:inside] = true; Hubbado::Sequence::Result.success(ctx) }
+            define_method(:after)       { |ctx| ctx[:after]  = true; Hubbado::Sequence::Result.success(ctx) }
+            define_method(:fail_inside) { |ctx| Hubbado::Sequence::Result.failure(ctx, error: { code: :boom }) }
+            define_method(:fail_first)  { |ctx| Hubbado::Sequence::Result.failure(ctx, error: { code: :nope }) }
             define_method(:should_not_run) { |_ctx| raise "should not be called" }
           end.new
         }
@@ -53,11 +53,11 @@ context "Hubbado" do
               end
               .step(:after)
 
-            assert pipeline.result.ok?
+            assert pipeline.result.success?
             assert pipeline.result.ctx[:before]
             assert pipeline.result.ctx[:inside]
             assert pipeline.result.ctx[:after]
-            assert pipeline.result.trail == %i[before inside after]
+            assert pipeline.result.successful_steps == %i[before inside after]
           end
 
           test "propagates an inner failure outward" do

@@ -16,7 +16,7 @@ context "Hubbado" do
 
             result = deserialize.(ctx, from: %i[params user])
 
-            assert result.ok?
+            assert result.success?
             assert contract.deserialized_with == { name: "Alice" }
           end
         end
@@ -31,7 +31,7 @@ context "Hubbado" do
 
             result = deserialize.(ctx, from: :user_attributes)
 
-            assert result.ok?
+            assert result.success?
             assert contract.deserialized_with == { name: "Alice" }
           end
         end
@@ -43,7 +43,7 @@ context "Hubbado" do
 
             result = deserialize.(ctx, from: %i[params user])
 
-            assert result.ok?
+            assert result.success?
             assert contract.deserialized_with.nil?
           end
         end
@@ -64,12 +64,12 @@ context "Hubbado" do
           end
           seq_class.dependency :deserialize_to_contract, Hubbado::Sequence::Macros::Contract::Deserialize
 
-          test "default behaviour is pass-through ok" do
+          test "default behaviour is pass-through success" do
             seq = seq_class.new
 
             result = seq.deserialize_to_contract.(Hubbado::Sequence::Ctx.new, from: :params)
 
-            assert result.ok?
+            assert result.success?
           end
 
           test "fail_with(**error) returns a failed result" do

@@ -13,17 +13,17 @@ context "Hubbado" do
           ctx = Hubbado::Sequence::Ctx.build(user: :a_user)
           pipeline = Hubbado::Sequence::Pipeline.new(ctx, dispatcher: dispatcher)
 
-          assert pipeline.result.ok?
+          assert pipeline.result.success?
           assert pipeline.result.ctx[:user] == :a_user
-          assert pipeline.result.trail == []
+          assert pipeline.result.successful_steps == []
         end
       end
 
       context "successful steps" do
         test "runs each step in order, passing ctx" do
           dispatcher = Class.new do
-            define_method(:double) { |ctx| ctx[:value] = ctx[:initial] * 2; Hubbado::Sequence::Result.ok(ctx) }
-            define_method(:label)  { |ctx| ctx[:label] = "doubled"; Hubbado::Sequence::Result.ok(ctx) }
+            define_method(:double) { |ctx| ctx[:value] = ctx[:initial] * 2; Hubbado::Sequence::Result.success(ctx) }
+            define_method(:label)  { |ctx| ctx[:label] = "doubled"; Hubbado::Sequence::Result.success(ctx) }
           end.new
 
           ctx = Hubbado::Sequence::Ctx.build(initial: 1)
@@ -31,22 +31,22 @@ context "Hubbado" do
             .step(:double)
             .step(:label)
 
-          assert pipeline.result.ok?
+          assert pipeline.result.success?
           assert pipeline.result.ctx[:value] == 2
           assert pipeline.result.ctx[:label] == "doubled"
         end
 
-        test "records each successful step in the trail" do
+        test "records each successful step in successful_steps" do
           dispatcher = Class.new do
-            define_method(:first)  { |ctx| Hubbado::Sequence::Result.ok(ctx) }
-            define_method(:second) { |ctx| Hubbado::Sequence::Result.ok(ctx) }
+            define_method(:first)  { |ctx| Hubbado::Sequence::Result.success(ctx) }
+            define_method(:second) { |ctx| Hubbado::Sequence::Result.success(ctx) }
           end.new
 
           pipeline = Hubbado::Sequence::Pipeline.new(Hubbado::Sequence::Ctx.new, dispatcher: dispatcher)
             .step(:first)
             .step(:second)
 
-          assert pipeline.result.trail == %i[first second]
+          assert pipeline.result.successful_steps == %i[first second]
         end
       end
 
@@ -54,9 +54,9 @@ context "Hubbado" do
         test "stops the pipeline at the first failure" do
           steps_run = []
           dispatcher = Class.new do
-            define_method(:first)  { |ctx| steps_run << :first;  Hubbado::Sequence::Result.ok(ctx) }
-            define_method(:second) { |ctx| steps_run << :second; Hubbado::Sequence::Result.fail(ctx, error: { code: :bad }) }
-            define_method(:third)  { |ctx| steps_run << :third;  Hubbado::Sequence::Result.ok(ctx) }
+            define_method(:first)  { |ctx| steps_run << :first;  Hubbado::Sequence::Result.success(ctx) }
+            define_method(:second) { |ctx| steps_run << :second; Hubbado::Sequence::Result.failure(ctx, error: { code: :bad }) }
+            define_method(:third)  { |ctx| steps_run << :third;  Hubbado::Sequence::Result.success(ctx) }
           end.new
 
           pipeline = Hubbado::Sequence::Pipeline.new(Hubbado::Sequence::Ctx.new, dispatcher: dispatcher)
@@ -70,7 +70,7 @@ context "Hubbado" do
 
         test "tags the failed step name on error[:step]" do
           dispatcher = Class.new do
-            define_method(:check) { |ctx| Hubbado::Sequence::Result.fail(ctx, error: { code: :forbidden }) }
+            define_method(:check) { |ctx| Hubbado::Sequence::Result.failure(ctx, error: { code: :forbidden }) }
           end.new
 
           pipeline = Hubbado::Sequence::Pipeline.new(Hubbado::Sequence::Ctx.new, dispatcher: dispatcher)
@@ -79,11 +79,11 @@ context "Hubbado" do
           assert pipeline.result.error[:step] == :check
         end
 
-        test "trail contains successful steps only, not the failing one" do
+        test "successful_steps excludes the failing step" do
           dispatcher = Class.new do
-            define_method(:first)  { |ctx| Hubbado::Sequence::Result.ok(ctx) }
-            define_method(:second) { |ctx| Hubbado::Sequence::Result.ok(ctx) }
-            define_method(:third)  { |ctx| Hubbado::Sequence::Result.fail(ctx, error: { code: :bad }) }
+            define_method(:first)  { |ctx| Hubbado::Sequence::Result.success(ctx) }
+            define_method(:second) { |ctx| Hubbado::Sequence::Result.success(ctx) }
+            define_method(:third)  { |ctx| Hubbado::Sequence::Result.failure(ctx, error: { code: :bad }) }
           end.new
 
           pipeline = Hubbado::Sequence::Pipeline.new(Hubbado::Sequence::Ctx.new, dispatcher: dispatcher)
@@ -92,13 +92,13 @@ context "Hubbado" do
             .step(:third)
 
           assert pipeline.result.failure?
-          assert pipeline.result.trail == %i[first second]
+          assert pipeline.result.successful_steps == %i[first second]
         end
 
         test "ctx still carries values written before the failure" do
           dispatcher = Class.new do
-            define_method(:write) { |ctx| ctx[:user] = :a_user; Hubbado::Sequence::Result.ok(ctx) }
-            define_method(:fail)  { |ctx| Hubbado::Sequence::Result.fail(ctx, error: { code: :bad }) }
+            define_method(:write) { |ctx| ctx[:user] = :a_user; Hubbado::Sequence::Result.success(ctx) }
+            define_method(:fail)  { |ctx| Hubbado::Sequence::Result.failure(ctx, error: { code: :bad }) }
           end.new
 
           pipeline = Hubbado::Sequence::Pipeline.new(Hubbado::Sequence::Ctx.new, dispatcher: dispatcher)
@@ -124,14 +124,14 @@ context "Hubbado" do
             .step(:returns_false)
             .step(:returns_model)
 
-          assert pipeline.result.ok?
-          assert pipeline.result.trail == %i[returns_string returns_nil returns_false returns_model]
+          assert pipeline.result.success?
+          assert pipeline.result.successful_steps == %i[returns_string returns_nil returns_false returns_model]
         end
 
         test "an explicitly returned failed Result still short-circuits" do
           dispatcher = Class.new do
             define_method(:fine)    { |_ctx| nil }
-            define_method(:explode) { |ctx| Hubbado::Sequence::Result.fail(ctx, error: { code: :nope }) }
+            define_method(:explode) { |ctx| Hubbado::Sequence::Result.failure(ctx, error: { code: :nope }) }
             define_method(:never)   { |_ctx| raise "should not run" }
           end.new
 
@@ -142,19 +142,19 @@ context "Hubbado" do
 
           assert pipeline.result.failure?
           assert pipeline.result.error[:code] == :nope
-          assert pipeline.result.trail == %i[fine]
+          assert pipeline.result.successful_steps == %i[fine]
         end
 
         test "an explicitly returned ok Result is honored without re-wrapping" do
           ctx = Hubbado::Sequence::Ctx.build(user: :alice)
           dispatcher = Class.new do
-            define_method(:keep_ctx) { |c| Hubbado::Sequence::Result.ok(c) }
+            define_method(:keep_ctx) { |c| Hubbado::Sequence::Result.success(c) }
           end.new
 
           pipeline = Hubbado::Sequence::Pipeline.new(ctx, dispatcher: dispatcher)
             .step(:keep_ctx)
 
-          assert pipeline.result.ok?
+          assert pipeline.result.success?
           assert pipeline.result.ctx.equal?(ctx)
         end
       end
@@ -164,7 +164,7 @@ context "Hubbado" do
           inner_scope = "seqs.present"
           dispatcher = Class.new do
             define_method(:nested) do |ctx|
-              Hubbado::Sequence::Result.fail(ctx, error: { code: :forbidden }, i18n_scope: inner_scope)
+              Hubbado::Sequence::Result.failure(ctx, error: { code: :forbidden }, i18n_scope: inner_scope)
             end
           end.new
 
