@@ -38,29 +38,59 @@ Optional, depending on which macros you use:
 
 ## Philosophy
 
-Sequencers sit at the controller boundary. They receive input from a Rails
-action, orchestrate the work, and hand a `Result` back. The sequencer's job
-is **orchestration only** — it should not contain business logic itself. Real
-behaviour lives in the models, contracts, policies, and domain objects it
-calls.
+Sequencers sit at the controller boundary. They receive input, orchestrate
+the work, and hand a `Result` back. The sequencer's job is **orchestration
+only** — it should not contain business logic itself. Real behaviour lives
+in the models, contracts, policies, and domain objects it calls.
 
-Nesting is intentionally shallow. The only nesting we use in practice is a
-`Present` sequencer inside an `Update` sequencer: Present loads the record,
-builds the contract, and checks the policy; Update calls Present and then
-validates and persists. Chains longer than one level are rare enough to be a
-signal that something should be a plain Ruby object instead.
+The framework is built with Rails in mind but doesn't require it — the core
+of the gem has no Rails dependency, and `Hubbado::Sequence::RunSequence` is
+a plain mixin that works in any host that drives a sequencer from a fixed
+lifecycle (Sinatra actions, Rack handlers, Hanami actions, job workers).
+ActiveRecord and Reform are only needed if you use the macros that wrap
+them.
 
-The framework uses [evt-dependency](https://github.com/eventide-project/dependency),
-which means every macro and every nested sequencer is an injectable
-dependency. Calling `.new` on a sequencer installs substitutes for all of
-them, so unit tests exercise the sequencer's orchestration logic — what runs,
-in what order, what short-circuits — without hitting the database, the policy
-gem, or Reform. The substitutes default to pass-through success, so a test only
-configures the outcomes that matter for the scenario it's verifying.
+In a Rails context the gem solves a specific pain: a controller action is
+hard to unit-test because the framework owns its lifecycle, and that gets
+worse the moment you want dependency injection. Sequencers lift the
+testable work *out* of the controller into a plain Ruby object that
+exposes its dependencies cleanly, and `run_sequence` keeps the controller
+itself thin — branching to redirect, render, or set a flash based on the
+sequencer's outcome.
 
-Integration coverage (using `.build` to wire real collaborators) is reserved
-for the controller boundary — one happy-path integration test per sequencer
-is usually enough to confirm the wiring is correct.
+Most controller actions don't contain much business logic anyway. They're
+a short sequence of common steps — find a model, validate a contract, save
+something, redirect. The sequencer DSL is designed to make that high-level
+sequence compact and easy to scan, without trying to be the home for the
+business logic underneath. Regular Ruby is already excellent at that.
+
+The DSL is deliberately minimal. A sequencer's `pipeline(ctx)` block is a
+small set of conventions around how `ctx` flows and what each step
+returns — nothing more. Steps are regular methods on a regular Ruby
+object, dependencies are regular Ruby objects, and the pipeline lets you
+use regular Ruby `if` / `unless` / `case` for control flow rather than
+inventing a conditional DSL. Where the framework can get out of your way,
+it does.
+
+The gem doesn't impose a nesting depth, but in practice we keep nesting
+very shallow — typically one level. The only nesting we use is a `Present`
+sequencer inside an `Update` sequencer: Present loads the record, builds
+the contract, and checks the policy; Update calls Present and then
+validates and persists. Anything deeper is a signal that a chunk of the
+work should be a plain Ruby object instead.
+
+The framework uses [evt-dependency](https://github.com/eventide-project/dependency)
+for dependency injection. Every macro and every nested sequencer is an
+injected dependency, which means calling `.new` on a sequencer installs
+substitutes for all of them. Unit tests exercise the sequencer's
+orchestration logic — what runs, in what order, what short-circuits —
+without hitting the database, the policy gem, or Reform. The substitutes
+default to pass-through success, so a test only configures the outcomes
+that matter for the scenario it's verifying.
+
+Integration coverage (using `.build` to wire real collaborators) is
+reserved for the controller boundary — one happy-path integration test
+per sequencer is usually enough to confirm the wiring is correct.
 
 ## Quick start
 
