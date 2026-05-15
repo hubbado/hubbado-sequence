@@ -21,7 +21,7 @@ context "Hubbado" do
 
       context "Result#message under shadowing" do
         test "translates failures via the top-level ::I18n" do
-          result = Hubbado::Sequence::Result.fail({}, error: { code: :forbidden })
+          result = Hubbado::Sequence::Result.failure({}, error: { code: :forbidden })
 
           # Would raise `undefined method 't' for module Hubbado::I18n` if the
           # `::` prefix was missing.
@@ -56,7 +56,7 @@ context "Hubbado" do
           ctx = Hubbado::Sequence::Ctx.new
           result = seq.find.(ctx, model, as: :user)
 
-          assert result.ok?
+          assert result.success?
         end
       end
     end

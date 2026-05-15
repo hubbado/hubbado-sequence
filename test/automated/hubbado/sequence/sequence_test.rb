@@ -16,7 +16,7 @@ context "Hubbado" do
 
         def call(ctx)
           ctx[:value] = ctx[:value] * 2
-          Hubbado::Sequence::Result.ok(ctx)
+          Hubbado::Sequence::Result.success(ctx)
         end
       end
 
@@ -24,7 +24,7 @@ context "Hubbado" do
         test "builds a Ctx from kwargs and delegates to instance call" do
           result = sequencer_class.(value: 21)
 
-          assert result.ok?
+          assert result.success?
           assert result.ctx[:value] == 42
         end
 
@@ -32,7 +32,7 @@ context "Hubbado" do
           ctx = Hubbado::Sequence::Ctx.build(value: 5)
           result = sequencer_class.(ctx)
 
-          assert result.ok?
+          assert result.success?
           assert result.ctx.equal?(ctx)
           assert ctx[:value] == 10
         end
@@ -79,7 +79,7 @@ context "Hubbado" do
           def self.name; "ExampleMacro"; end
 
           def call(ctx)
-            Hubbado::Sequence::Result.ok(ctx)
+            Hubbado::Sequence::Result.success(ctx)
           end
         end
 

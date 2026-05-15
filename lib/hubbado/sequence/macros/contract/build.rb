@@ -13,7 +13,7 @@ module Hubbado
           def call(ctx, contract_class, attr_name = nil)
             model = attr_name && Path.resolve(ctx, attr_name)
             ctx[:contract] = contract_class.new(model)
-            Result.ok(ctx)
+            Result.success(ctx)
           end
 
           module Substitute
@@ -31,10 +31,10 @@ module Hubbado
             end
 
             record def call(ctx, contract_class, attr_name = nil)
-              return Result.fail(ctx, error: @configured_error) if @configured_error
+              return Result.failure(ctx, error: @configured_error) if @configured_error
 
               ctx[:contract] = @return_value if @configured_success
-              Result.ok(ctx)
+              Result.success(ctx)
             end
 
             def built?(**kwargs)

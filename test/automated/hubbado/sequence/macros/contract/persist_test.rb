@@ -13,7 +13,7 @@ context "Hubbado" do
 
             result = persist.(ctx)
 
-            assert result.ok?
+            assert result.success?
             assert contract.saved
           end
         end
@@ -43,7 +43,7 @@ context "Hubbado" do
 
             result = seq.persist.(Hubbado::Sequence::Ctx.new)
 
-            assert result.ok?
+            assert result.success?
           end
 
           test "succeed_with takes no args; persistence passes" do
@@ -52,7 +52,7 @@ context "Hubbado" do
 
             result = seq.persist.(Hubbado::Sequence::Ctx.new)
 
-            assert result.ok?
+            assert result.success?
           end
 
           test "fail_with(**error) returns a failed result" do

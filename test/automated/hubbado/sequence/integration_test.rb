@@ -54,11 +54,11 @@ context "Hubbado" do
         )
 
         test "succeeds" do
-          assert result.ok?
+          assert result.success?
         end
 
-        test "records the trail" do
-          assert result.trail == %i[find build_contract check_policy validate persist]
+        test "records successful_steps" do
+          assert result.successful_steps == %i[find build_contract check_policy validate persist]
         end
 
         test "exposes the contract on ctx" do
@@ -74,7 +74,7 @@ context "Hubbado" do
           ctx = Hubbado::Sequence::Ctx.build(params: { id: 1 }, current_user: :alice)
           result = seq.(ctx)
 
-          assert result.ok?
+          assert result.success?
         end
 
         test "uses substitutes to control specific outcomes" do
@@ -85,7 +85,7 @@ context "Hubbado" do
           ctx = Hubbado::Sequence::Ctx.build(params: { id: 99 }, current_user: :alice)
           result = seq.(ctx)
 
-          assert result.ok?
+          assert result.success?
           assert result.ctx[:user].equal?(fake_user)
           assert seq.find.fetched?
         end
@@ -100,7 +100,7 @@ context "Hubbado" do
           assert result.failure?
           assert result.error[:code] == :forbidden
           assert result.error[:step] == :check_policy
-          assert result.trail == %i[find build_contract]
+          assert result.successful_steps == %i[find build_contract]
           refute seq.validate.validated?
           refute seq.persist.persisted?
         end

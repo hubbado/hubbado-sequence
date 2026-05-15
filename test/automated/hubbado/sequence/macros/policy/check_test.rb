@@ -13,7 +13,7 @@ context "Hubbado" do
             ctx = Hubbado::Sequence::Ctx.build(current_user: :alice, user: :a_record)
             result = check_policy.(ctx, policy_class, :user, :update)
 
-            assert result.ok?
+            assert result.success?
           end
         end
 
@@ -58,7 +58,7 @@ context "Hubbado" do
 
             result = seq.check_policy.(Hubbado::Sequence::Ctx.new, policy_class, :user, :update)
 
-            assert result.ok?
+            assert result.success?
           end
 
           test "succeed_with takes no args; policy passes" do
@@ -67,7 +67,7 @@ context "Hubbado" do
 
             result = seq.check_policy.(Hubbado::Sequence::Ctx.new, policy_class, :user, :update)
 
-            assert result.ok?
+            assert result.success?
           end
 
           test "fail_with(**error) returns a failed result" do

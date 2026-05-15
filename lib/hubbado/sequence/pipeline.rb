@@ -6,15 +6,15 @@ module Hubbado
     class Pipeline
       def initialize(ctx, dispatcher:)
         @ctx = ctx
-        @trail = []
+        @successful_steps = []
         @failed_result = nil
         @dispatcher = dispatcher
       end
 
       # `step(:name)` dispatches to `dispatcher.send(name, ctx)`. The method
       # is treated as successful unless it explicitly returns a failed
-      # `Result`; any other return value (nil, false, a model, `Result.ok`)
-      # continues the pipeline with the same ctx. Only `Result.fail(...)` /
+      # `Result`; any other return value (nil, false, a model, `Result.success`)
+      # continues the pipeline with the same ctx. Only `Result.failure(...)` /
       # `failure(ctx, code: ...)` short-circuits.
       def step(name)
         return self if @failed_result
@@ -58,7 +58,7 @@ module Hubbado
         if @failed_result
           @failed_result
         else
-          Result.ok(@ctx, trail: @trail.dup)
+          Result.success(@ctx, successful_steps: @successful_steps.dup)
         end
       end
 
@@ -86,13 +86,13 @@ module Hubbado
         if return_value.is_a?(Result) && return_value.failure?
           @failed_result = tag_failure(return_value, name)
         else
-          @trail << name
+          @successful_steps << name
         end
       end
 
       def tag_failure(result, step_name)
         tagged_error = result.error.merge(step: step_name)
-        Result.fail(result.ctx, error: tagged_error, trail: @trail.dup, i18n_scope: result.i18n_scope)
+        Result.failure(result.ctx, error: tagged_error, successful_steps: @successful_steps.dup, i18n_scope: result.i18n_scope)
       end
     end
   end

@@ -17,9 +17,9 @@ module Hubbado
             contract.validate(params)
 
             if contract.errors.empty?
-              Result.ok(ctx)
+              Result.success(ctx)
             else
-              Result.fail(ctx, error: { code: :validation_failed })
+              Result.failure(ctx, error: { code: :validation_failed })
             end
           end
 
@@ -37,9 +37,9 @@ module Hubbado
             end
 
             record def call(ctx, from: nil)
-              return Result.fail(ctx, error: @configured_error) if @configured_error
+              return Result.failure(ctx, error: @configured_error) if @configured_error
 
-              Result.ok(ctx)
+              Result.success(ctx)
             end
 
             def validated?(**kwargs)

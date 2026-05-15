@@ -26,14 +26,14 @@ context "Hubbado" do
 
         log_handler = ->() { Hubbado::Log.loggers.first }
 
-        ctx_with_trail = ->(trail) {
-          # Bypass strict access via fetch — Result.with_trail keeps the same ctx.
+        ctx_with_steps = ->(_steps) {
+          # Bypass strict access via fetch — Result.with_successful_steps keeps the same ctx.
           Hubbado::Sequence::Ctx.new
         }
 
         context "success" do
-          test "logs at info with the trail" do
-            result = Hubbado::Sequence::Result.ok(Hubbado::Sequence::Ctx.new, trail: %i[find build])
+          test "logs at info with successful_steps" do
+            result = Hubbado::Sequence::Result.success(Hubbado::Sequence::Ctx.new, successful_steps: %i[find build])
             seq_class = sequencer_with_canned.(result)
 
             controller.().run_sequence(seq_class) do |r|
@@ -44,8 +44,8 @@ context "Hubbado" do
             assert log_handler.().message == "Sequencer Seqs::Logged succeeded: find → build"
           end
 
-          test "logs even when the trail is empty" do
-            result = Hubbado::Sequence::Result.ok(Hubbado::Sequence::Ctx.new)
+          test "logs even when successful_steps is empty" do
+            result = Hubbado::Sequence::Result.success(Hubbado::Sequence::Ctx.new)
             seq_class = sequencer_with_canned.(result)
 
             controller.().run_sequence(seq_class) do |r|
@@ -58,10 +58,10 @@ context "Hubbado" do
 
         context "policy_failed" do
           test "logs the failed step and code" do
-            result = Hubbado::Sequence::Result.fail(
+            result = Hubbado::Sequence::Result.failure(
               Hubbado::Sequence::Ctx.new,
               error: { code: :forbidden, step: :check_policy },
-              trail: %i[find_user build_contract]
+              successful_steps: %i[find_user build_contract]
             )
             seq_class = sequencer_with_canned.(result)
 
@@ -74,10 +74,10 @@ context "Hubbado" do
           end
 
           test "logs at error level when no handler runs (safety net)" do
-            result = Hubbado::Sequence::Result.fail(
+            result = Hubbado::Sequence::Result.failure(
               Hubbado::Sequence::Ctx.new,
               error: { code: :forbidden, step: :check_policy },
-              trail: %i[find_user]
+              successful_steps: %i[find_user]
             )
             seq_class = sequencer_with_canned.(result)
 
@@ -91,10 +91,10 @@ context "Hubbado" do
 
         context "not_found" do
           test "logs the failed step" do
-            result = Hubbado::Sequence::Result.fail(
+            result = Hubbado::Sequence::Result.failure(
               Hubbado::Sequence::Ctx.new,
               error: { code: :not_found, step: :find_user },
-              trail: []
+              successful_steps: []
             )
             seq_class = sequencer_with_canned.(result)
 
@@ -108,10 +108,10 @@ context "Hubbado" do
 
         context "validation_failed" do
           test "logs the failed step" do
-            result = Hubbado::Sequence::Result.fail(
+            result = Hubbado::Sequence::Result.failure(
               Hubbado::Sequence::Ctx.new,
               error: { code: :validation_failed, step: :validate },
-              trail: %i[find_user build_contract check_policy]
+              successful_steps: %i[find_user build_contract check_policy]
             )
             seq_class = sequencer_with_canned.(result)
 
@@ -125,10 +125,10 @@ context "Hubbado" do
 
         context "otherwise" do
           test "logs the code that fell through" do
-            result = Hubbado::Sequence::Result.fail(
+            result = Hubbado::Sequence::Result.failure(
               Hubbado::Sequence::Ctx.new,
               error: { code: :persist_failed, step: :persist },
-              trail: %i[find_user build_contract check_policy validate]
+              successful_steps: %i[find_user build_contract check_policy validate]
             )
             seq_class = sequencer_with_canned.(result)
 

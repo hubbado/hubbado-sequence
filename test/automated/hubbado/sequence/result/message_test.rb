@@ -5,13 +5,13 @@ context "Hubbado" do
     context "Result" do
       context "#message" do
         test "is nil when the result is successful" do
-          result = Hubbado::Sequence::Result.ok({})
+          result = Hubbado::Sequence::Result.success({})
 
           assert result.message.nil?
         end
 
         test "uses the inline message field as a fallback" do
-          result = Hubbado::Sequence::Result.fail(
+          result = Hubbado::Sequence::Result.failure(
             {},
             error: { code: :something_unknown, message: "Inline fallback" }
           )
@@ -20,7 +20,7 @@ context "Hubbado" do
         end
 
         test "humanizes the code when no translation or message is given" do
-          result = Hubbado::Sequence::Result.fail(
+          result = Hubbado::Sequence::Result.failure(
             {},
             error: { code: :not_shippable }
           )
@@ -29,7 +29,7 @@ context "Hubbado" do
         end
 
         test "translates with the framework default scope when present" do
-          result = Hubbado::Sequence::Result.fail(
+          result = Hubbado::Sequence::Result.failure(
             {},
             error: { code: :forbidden }
           )
@@ -41,7 +41,7 @@ context "Hubbado" do
         test "prefers the sequencer's i18n scope over the framework default" do
           I18n.backend.store_translations(:en, seqs: { update_user: { forbidden: "Sequencer-specific message" } })
 
-          result = Hubbado::Sequence::Result.fail(
+          result = Hubbado::Sequence::Result.failure(
             {},
             error: { code: :forbidden },
             i18n_scope: "seqs.update_user"
@@ -53,7 +53,7 @@ context "Hubbado" do
         test "prefers the per-error i18n_scope over the result's scope" do
           I18n.backend.store_translations(:en, seqs: { other: { forbidden: "Per-error scope" } })
 
-          result = Hubbado::Sequence::Result.fail(
+          result = Hubbado::Sequence::Result.failure(
             {},
             error: { code: :forbidden, i18n_scope: "seqs.other" },
             i18n_scope: "seqs.update_user"
@@ -65,7 +65,7 @@ context "Hubbado" do
         test "uses the per-error i18n_key override when supplied" do
           I18n.backend.store_translations(:en, seqs: { update_user: { custom_key: "Custom keyed message" } })
 
-          result = Hubbado::Sequence::Result.fail(
+          result = Hubbado::Sequence::Result.failure(
             {},
             error: { code: :forbidden, i18n_key: :custom_key },
             i18n_scope: "seqs.update_user"
@@ -80,7 +80,7 @@ context "Hubbado" do
             seqs: { orders: { not_shippable: "Already shipped at %{shipped_at}" } }
           )
 
-          result = Hubbado::Sequence::Result.fail(
+          result = Hubbado::Sequence::Result.failure(
             {},
             error: { code: :not_shippable, i18n_args: { shipped_at: "yesterday" } },
             i18n_scope: "seqs.orders"

@@ -17,7 +17,7 @@ module Hubbado
               else
                 model.new(attributes)
               end
-            Result.ok(ctx)
+            Result.success(ctx)
           end
 
           module Substitute
@@ -40,10 +40,10 @@ module Hubbado
                   "Macros::Model::Build substitute: #{model} does not respond to :new"
               end
 
-              return Result.fail(ctx, error: @configured_error) if @configured_error
+              return Result.failure(ctx, error: @configured_error) if @configured_error
 
               ctx[as] = @return_value if @configured_success
-              Result.ok(ctx)
+              Result.success(ctx)
             end
 
             def built?(**kwargs)

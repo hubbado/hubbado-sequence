@@ -56,7 +56,7 @@ which means every macro and every nested sequencer is an injectable
 dependency. Calling `.new` on a sequencer installs substitutes for all of
 them, so unit tests exercise the sequencer's orchestration logic — what runs,
 in what order, what short-circuits — without hitting the database, the policy
-gem, or Reform. The substitutes default to pass-through `ok`, so a test only
+gem, or Reform. The substitutes default to pass-through success, so a test only
 configures the outcomes that matter for the scenario it's verifying.
 
 Integration coverage (using `.build` to wire real collaborators) is reserved
@@ -379,15 +379,15 @@ end
 
 Inner writes (`ctx[:user]`, `ctx[:contract]`) are visible to outer steps —
 Present and Update share the same `Ctx`, so `:validate` and `:persist` see
-exactly what Present built. The outer trail records `:present` as a single
+exactly what Present built. The outer successful_steps records `:present` as a single
 step; Present's inner steps stay opaque to the parent.
 
 ## Result, success, failure
 
 A step is **successful unless it explicitly returns a failed `Result`**. Any
-other return value (`nil`, `false`, a model, `Result.ok(...)`) is taken as
+other return value (`nil`, `false`, a model, `Result.success(...)`) is taken as
 success and the pipeline continues with the same `ctx`. Only
-`Result.fail(...)` or the `failure(ctx, code: ...)` helper short-circuits.
+`Result.failure(...)` or the `failure(ctx, code: ...)` helper short-circuits.
 
 ```ruby
 def call(ctx)
@@ -401,7 +401,7 @@ private
 
 def must_be_premium(ctx)
   return failure(ctx, code: :forbidden) unless ctx[:user].premium?
-  # implicit ok if we get here
+  # implicit success if we get here
 end
 ```
 
@@ -415,7 +415,7 @@ same error attrs as the underlying error hash (`code:`, `i18n_key:`,
 `described_class.new` returns a sequencer with all dependencies installed as
 substitutes. Tests configure the substitutes for the scenario at hand.
 `described_class.build` runs the production wiring (the real macros).
-Substitutes default to pass-through `Result.ok(ctx)` so a test only
+Substitutes default to pass-through `Result.success(ctx)` so a test only
 configures the ones whose return matters.
 
 ### Substituting macros directly
@@ -434,7 +434,7 @@ RSpec.describe Seqs::PresentUser do
       current_user: User.new
     )
 
-    expect(result).to be_ok
+    expect(result).to be_success
     expect(seq.find.fetched?(as: :user)).to be true
     expect(seq.build_contract.built?).to be true
     expect(seq.check_policy.checked?).to be true
@@ -477,7 +477,7 @@ RSpec.describe Seqs::UpdateUser do
       current_user: User.new
     )
 
-    expect(result).to be_ok
+    expect(result).to be_success
     expect(seq.present.called?).to be true
     expect(seq.persist.persisted?).to be true
   end
@@ -514,7 +514,7 @@ end
 ```
 
 `succeed_with(**ctx_writes)` writes the given keys into `ctx` and returns
-`Result.ok(ctx)`, so the outer steps see what the real Present would have
+`Result.success(ctx)`, so the outer steps see what the real Present would have
 left behind. `fail_with(**error)` returns a failed `Result` with the given
 error, short-circuiting the outer pipeline. The Update spec doesn't need
 to exercise Find / Build / Policy::Check directly — those live in
@@ -522,25 +522,26 @@ PresentUser's spec, where they belong.
 
 ## Observability
 
-Every `Result` carries a **trail** — the list of step names that completed
-successfully, in order. On failure, the failing step is *not* in the trail;
-it's tagged on `error[:step]` instead.
+Every `Result` carries **successful_steps** — the list of step names that
+completed successfully, in order. On failure, the failing step is *not* in
+`successful_steps`; it's tagged on `error[:step]` instead.
 
 ```ruby
-result.trail         # => [:find, :build_contract, :check_policy, :validate, :persist]  # success
-result.trail         # => [:find, :build_contract]                                       # failed at :check_policy
-result.error[:step]  # => :check_policy
+result.successful_steps  # => [:find, :build_contract, :check_policy, :validate, :persist]  # success
+result.successful_steps  # => [:find, :build_contract]                                       # failed at :check_policy
+result.error[:step]      # => :check_policy
 ```
 
 When invoked via `run_sequence`, the dispatcher logs a single line per
-invocation summarising the trail and (on failure) where it stopped:
+invocation summarising the successful steps and (on failure) where it
+stopped:
 
 ```
 Sequencer Seqs::UpdateUser succeeded: find → build_contract → check_policy → validate → persist
 Sequencer Seqs::UpdateUser failed at :check_policy (forbidden): find → build_contract
 ```
 
-Nested sequencer trails are opaque to the parent: a parent's trail shows
+Nested sequencer successful_steps are opaque to the parent: a parent's successful_steps shows
 `:present` as a single step, not the sub-steps inside Present.
 `error[:step]` carries the inner step name when a nested sequencer fails.
 

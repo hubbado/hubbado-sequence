@@ -5,49 +5,49 @@ module Hubbado
 
       attr_reader :ctx
       attr_reader :error
-      attr_reader :trail
+      attr_reader :successful_steps
       attr_reader :i18n_scope
 
-      def self.ok(ctx, trail: [], i18n_scope: nil)
-        new(:ok, ctx, error: nil, trail: trail, i18n_scope: i18n_scope)
+      def self.success(ctx, successful_steps: [], i18n_scope: nil)
+        new(:success, ctx, error: nil, successful_steps: successful_steps, i18n_scope: i18n_scope)
       end
 
-      def self.fail(ctx, error:, trail: [], i18n_scope: nil)
+      def self.failure(ctx, error:, successful_steps: [], i18n_scope: nil)
         unless error.is_a?(Hash) && error[:code]
-          raise ArgumentError, "Result.fail requires error: { code: ... }"
+          raise ArgumentError, "Result.failure requires error: { code: ... }"
         end
 
-        new(:fail, ctx, error: error, trail: trail, i18n_scope: i18n_scope)
+        new(:failure, ctx, error: error, successful_steps: successful_steps, i18n_scope: i18n_scope)
       end
 
-      def initialize(status, ctx, error:, trail:, i18n_scope:)
+      def initialize(status, ctx, error:, successful_steps:, i18n_scope:)
         @status = status
         @ctx = ctx
         @error = error
-        @trail = trail
+        @successful_steps = successful_steps
         @i18n_scope = i18n_scope
       end
 
-      def ok?
-        @status == :ok
+      def success?
+        @status == :success
       end
 
       def failure?
-        @status == :fail
+        @status == :failure
       end
 
-      def with_trail(trail)
-        self.class.new(@status, @ctx, error: @error, trail: trail, i18n_scope: @i18n_scope)
+      def with_successful_steps(successful_steps)
+        self.class.new(@status, @ctx, error: @error, successful_steps: successful_steps, i18n_scope: @i18n_scope)
       end
 
       def with_i18n_scope(scope)
         return self unless @i18n_scope.nil?
 
-        self.class.new(@status, @ctx, error: @error, trail: @trail, i18n_scope: scope)
+        self.class.new(@status, @ctx, error: @error, successful_steps: @successful_steps, i18n_scope: scope)
       end
 
       def message
-        return nil if ok?
+        return nil if success?
 
         translation = translate_with_chain
         return translation if translation

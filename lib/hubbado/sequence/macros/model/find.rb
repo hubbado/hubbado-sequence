@@ -16,9 +16,9 @@ module Hubbado
 
             if record
               ctx[as] = record
-              Result.ok(ctx)
+              Result.success(ctx)
             else
-              Result.fail(ctx, error: { code: :not_found })
+              Result.failure(ctx, error: { code: :not_found })
             end
           end
 
@@ -42,10 +42,10 @@ module Hubbado
                   "Macros::Model::Find substitute: #{model} does not respond to :find_by"
               end
 
-              return Result.fail(ctx, error: @configured_error) if @configured_error
+              return Result.failure(ctx, error: @configured_error) if @configured_error
 
               ctx[as] = @return_value if @configured_success
-              Result.ok(ctx)
+              Result.success(ctx)
             end
 
             def fetched?(**kwargs)

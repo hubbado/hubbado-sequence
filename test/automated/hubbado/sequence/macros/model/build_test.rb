@@ -13,7 +13,7 @@ context "Hubbado" do
             ctx = Hubbado::Sequence::Ctx.new
             result = build_macro.(ctx, model, as: :user)
 
-            assert result.ok?
+            assert result.success?
             assert ctx[:user].is_a?(model)
             assert ctx[:user].init_attributes == {}
           end
@@ -28,7 +28,7 @@ context "Hubbado" do
 
             result = build_macro.(ctx, model, as: :user, attributes: attrs)
 
-            assert result.ok?
+            assert result.success?
             assert ctx[:user].init_attributes == attrs
           end
         end
@@ -55,7 +55,7 @@ context "Hubbado" do
             ctx = Hubbado::Sequence::Ctx.new
             result = seq.build_record.(ctx, model, as: :user)
 
-            assert result.ok?
+            assert result.success?
             refute ctx.key?(:user)
           end
 
@@ -66,7 +66,7 @@ context "Hubbado" do
             ctx = Hubbado::Sequence::Ctx.new
             result = seq.build_record.(ctx, model, as: :user)
 
-            assert result.ok?
+            assert result.success?
             assert ctx[:user] == :fake_record
           end
 

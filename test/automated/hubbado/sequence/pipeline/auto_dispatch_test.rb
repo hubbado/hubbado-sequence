@@ -23,26 +23,26 @@ context "Hubbado" do
 
           define_method(:double_value) do |ctx|
             ctx[:value] = ctx[:value] * 2
-            Hubbado::Sequence::Result.ok(ctx)
+            Hubbado::Sequence::Result.success(ctx)
           end
 
           define_method(:add_one) do |ctx|
             ctx[:value] = ctx[:value] + 1
-            Hubbado::Sequence::Result.ok(ctx)
+            Hubbado::Sequence::Result.success(ctx)
           end
         end
 
         test "step(:foo) calls self.foo(ctx)" do
           result = seq_class.(value: 10)
 
-          assert result.ok?
+          assert result.success?
           assert result.ctx[:value] == 21
         end
 
-        test "records each dispatched step in the trail" do
+        test "records each dispatched step in successful_steps" do
           result = seq_class.(value: 10)
 
-          assert result.trail == %i[double_value add_one]
+          assert result.successful_steps == %i[double_value add_one]
         end
 
         test "a returning failure short-circuits the pipeline" do
@@ -58,8 +58,8 @@ context "Hubbado" do
                 .result
             end
 
-            define_method(:fine)       { |ctx| Hubbado::Sequence::Result.ok(ctx) }
-            define_method(:bad)        { |ctx| Hubbado::Sequence::Result.fail(ctx, error: { code: :bad }) }
+            define_method(:fine)       { |ctx| Hubbado::Sequence::Result.success(ctx) }
+            define_method(:bad)        { |ctx| Hubbado::Sequence::Result.failure(ctx, error: { code: :bad }) }
             define_method(:never_runs) { |ctx| raise "should not run" }
           end
 
@@ -68,7 +68,7 @@ context "Hubbado" do
           assert result.failure?
           assert result.error[:code] == :bad
           assert result.error[:step] == :bad
-          assert result.trail == %i[fine]
+          assert result.successful_steps == %i[fine]
         end
       end
 
@@ -87,9 +87,9 @@ context "Hubbado" do
               .result
           end
 
-          define_method(:before_tx) { |ctx| ctx[:before] = true; Hubbado::Sequence::Result.ok(ctx) }
-          define_method(:inside_tx) { |ctx| ctx[:inside] = true; Hubbado::Sequence::Result.ok(ctx) }
-          define_method(:after_tx)  { |ctx| ctx[:after]  = true; Hubbado::Sequence::Result.ok(ctx) }
+          define_method(:before_tx) { |ctx| ctx[:before] = true; Hubbado::Sequence::Result.success(ctx) }
+          define_method(:inside_tx) { |ctx| ctx[:inside] = true; Hubbado::Sequence::Result.success(ctx) }
+          define_method(:after_tx)  { |ctx| ctx[:after]  = true; Hubbado::Sequence::Result.success(ctx) }
         end
 
         test "inner step dispatches to the same sequencer instance" do
@@ -98,7 +98,7 @@ context "Hubbado" do
           assert result.ctx[:before]
           assert result.ctx[:inside]
           assert result.ctx[:after]
-          assert result.trail == %i[before_tx inside_tx after_tx]
+          assert result.successful_steps == %i[before_tx inside_tx after_tx]
         end
       end
 

@@ -13,7 +13,7 @@ context "Hubbado" do
             ctx = Hubbado::Sequence::Ctx.build(user: :a_user)
             result = build_contract.(ctx, contract_class, :user)
 
-            assert result.ok?
+            assert result.success?
             assert ctx[:contract].is_a?(contract_class)
             assert ctx[:contract].model == :a_user
           end
@@ -24,7 +24,7 @@ context "Hubbado" do
             ctx = Hubbado::Sequence::Ctx.build(form: { user: :a_user })
             result = build_contract.(ctx, contract_class, %i[form user])
 
-            assert result.ok?
+            assert result.success?
             assert ctx[:contract].model == :a_user
           end
         end
@@ -34,7 +34,7 @@ context "Hubbado" do
             ctx = Hubbado::Sequence::Ctx.new
             result = build_contract.(ctx, contract_class)
 
-            assert result.ok?
+            assert result.success?
             assert ctx[:contract].is_a?(contract_class)
             assert ctx[:contract].model.nil?
           end
@@ -77,7 +77,7 @@ context "Hubbado" do
             ctx = Hubbado::Sequence::Ctx.new
             result = seq.build_contract.(ctx, contract_class, :user)
 
-            assert result.ok?
+            assert result.success?
             refute ctx.key?(:contract)
           end
 
@@ -89,7 +89,7 @@ context "Hubbado" do
             ctx = Hubbado::Sequence::Ctx.new
             result = seq.build_contract.(ctx, contract_class, :user)
 
-            assert result.ok?
+            assert result.success?
             assert ctx[:contract].equal?(contract)
           end
 

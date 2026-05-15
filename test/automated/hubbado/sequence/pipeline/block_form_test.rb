@@ -20,16 +20,16 @@ context "Hubbado" do
             end
           end
 
-          define_method(:double_value) { |ctx| ctx[:value] = ctx[:value] * 2; Hubbado::Sequence::Result.ok(ctx) }
-          define_method(:add_one)      { |ctx| ctx[:value] = ctx[:value] + 1; Hubbado::Sequence::Result.ok(ctx) }
-          define_method(:tag)          { |ctx| ctx[:tagged] = true; Hubbado::Sequence::Result.ok(ctx) }
+          define_method(:double_value) { |ctx| ctx[:value] = ctx[:value] * 2; Hubbado::Sequence::Result.success(ctx) }
+          define_method(:add_one)      { |ctx| ctx[:value] = ctx[:value] + 1; Hubbado::Sequence::Result.success(ctx) }
+          define_method(:tag)          { |ctx| ctx[:tagged] = true; Hubbado::Sequence::Result.success(ctx) }
         end
 
         test "returns the Result automatically" do
           result = seq_class.(value: 5)
 
           assert result.is_a?(Hubbado::Sequence::Result)
-          assert result.ok?
+          assert result.success?
           assert result.ctx[:value] == 11
           assert result.ctx[:tagged]
         end
@@ -37,7 +37,7 @@ context "Hubbado" do
         test "yields the pipeline so statement form works inside the block" do
           result = seq_class.(value: 5)
 
-          assert result.trail == %i[double_value add_one tag]
+          assert result.successful_steps == %i[double_value add_one tag]
         end
 
         test "supports conditionals naturally inside the block" do
@@ -53,14 +53,14 @@ context "Hubbado" do
               end
             end
 
-            define_method(:always)        { |ctx| Hubbado::Sequence::Result.ok(ctx) }
-            define_method(:extra)         { |ctx| Hubbado::Sequence::Result.ok(ctx) }
-            define_method(:always_again)  { |ctx| Hubbado::Sequence::Result.ok(ctx) }
+            define_method(:always)        { |ctx| Hubbado::Sequence::Result.success(ctx) }
+            define_method(:extra)         { |ctx| Hubbado::Sequence::Result.success(ctx) }
+            define_method(:always_again)  { |ctx| Hubbado::Sequence::Result.success(ctx) }
           end
 
           result = conditional_seq.(run_extra: true)
 
-          assert result.trail == %i[always extra always_again]
+          assert result.successful_steps == %i[always extra always_again]
         end
 
         test "propagates failure as the returned Result" do
@@ -75,8 +75,8 @@ context "Hubbado" do
               end
             end
 
-            define_method(:fine) { |ctx| Hubbado::Sequence::Result.ok(ctx) }
-            define_method(:bad)  { |ctx| Hubbado::Sequence::Result.fail(ctx, error: { code: :nope }) }
+            define_method(:fine) { |ctx| Hubbado::Sequence::Result.success(ctx) }
+            define_method(:bad)  { |ctx| Hubbado::Sequence::Result.failure(ctx, error: { code: :nope }) }
           end
 
           result = failing_seq.()
@@ -84,7 +84,7 @@ context "Hubbado" do
           assert result.failure?
           assert result.error[:code] == :nope
           assert result.error[:step] == :bad
-          assert result.trail == %i[fine]
+          assert result.successful_steps == %i[fine]
         end
 
         test "transaction works inside the block" do
@@ -102,14 +102,14 @@ context "Hubbado" do
               end
             end
 
-            define_method(:before_tx) { |ctx| ctx[:before] = true; Hubbado::Sequence::Result.ok(ctx) }
-            define_method(:inside_tx) { |ctx| ctx[:inside] = true; Hubbado::Sequence::Result.ok(ctx) }
-            define_method(:after_tx)  { |ctx| ctx[:after]  = true; Hubbado::Sequence::Result.ok(ctx) }
+            define_method(:before_tx) { |ctx| ctx[:before] = true; Hubbado::Sequence::Result.success(ctx) }
+            define_method(:inside_tx) { |ctx| ctx[:inside] = true; Hubbado::Sequence::Result.success(ctx) }
+            define_method(:after_tx)  { |ctx| ctx[:after]  = true; Hubbado::Sequence::Result.success(ctx) }
           end
 
           result = tx_seq.()
 
-          assert result.ok?
+          assert result.success?
           assert result.ctx[:before]
           assert result.ctx[:inside]
           assert result.ctx[:after]
@@ -126,12 +126,12 @@ context "Hubbado" do
                 .result
             end
 
-            define_method(:set) { |ctx| ctx[:set] = true; Hubbado::Sequence::Result.ok(ctx) }
+            define_method(:set) { |ctx| ctx[:set] = true; Hubbado::Sequence::Result.success(ctx) }
           end
 
           result = chain_seq.()
 
-          assert result.ok?
+          assert result.success?
           assert result.ctx[:set]
         end
       end

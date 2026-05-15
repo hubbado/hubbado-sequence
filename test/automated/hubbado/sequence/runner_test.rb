@@ -20,7 +20,7 @@ context "Hubbado" do
       ctx = ->() { Hubbado::Sequence::Ctx.new }
 
       context "successful result" do
-        result = Hubbado::Sequence::Result.ok(ctx.())
+        result = Hubbado::Sequence::Result.success(ctx.())
         seq_class = sequencer_with_canned.(result)
 
         test "fires only the success block" do
@@ -55,7 +55,7 @@ context "Hubbado" do
       end
 
       context "policy failed (:forbidden)" do
-        result = Hubbado::Sequence::Result.fail(ctx.(), error: { code: :forbidden })
+        result = Hubbado::Sequence::Result.failure(ctx.(), error: { code: :forbidden })
         seq_class = sequencer_with_canned.(result)
 
         test "fires only the policy_failed block" do
@@ -89,7 +89,7 @@ context "Hubbado" do
       end
 
       context "not found" do
-        result = Hubbado::Sequence::Result.fail(ctx.(), error: { code: :not_found })
+        result = Hubbado::Sequence::Result.failure(ctx.(), error: { code: :not_found })
         seq_class = sequencer_with_canned.(result)
 
         test "fires only the not_found block" do
@@ -112,7 +112,7 @@ context "Hubbado" do
       end
 
       context "validation failed" do
-        result = Hubbado::Sequence::Result.fail(ctx.(), error: { code: :validation_failed })
+        result = Hubbado::Sequence::Result.failure(ctx.(), error: { code: :validation_failed })
         seq_class = sequencer_with_canned.(result)
 
         test "fires only the validation_failed block" do
@@ -154,7 +154,7 @@ context "Hubbado" do
           captured = nil
           klass.define_method(:call) do |c|
             captured = c
-            Hubbado::Sequence::Result.ok(c)
+            Hubbado::Sequence::Result.success(c)
           end
 
           Hubbado::Sequence::Runner.new.(klass, params: { id: 1 }, current_user: :alice) do |r|
@@ -169,7 +169,7 @@ context "Hubbado" do
 
       context "block is optional" do
         test "still executes the sequencer when no block is given for a successful result" do
-          result = Hubbado::Sequence::Result.ok(ctx.())
+          result = Hubbado::Sequence::Result.success(ctx.())
           seq_class = sequencer_with_canned.(result)
 
           # No block: success path means nothing to dispatch, no safety net trigger.

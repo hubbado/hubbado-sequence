@@ -4,6 +4,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased] - Result vocabulary renamed: success/failure and successful_steps
+
+### Changed (breaking)
+
+- **`Result.ok` → `Result.success`** and **`Result.fail` → `Result.failure`**.
+  Aligns with the wider Ruby railway-oriented vocabulary (dry-monads,
+  dry-transaction) and replaces the asymmetric `ok`/`failure?` pair with a
+  consistent `success`/`failure` pair.
+
+  ```ruby
+  # before
+  Result.ok(ctx)
+  Result.fail(ctx, error: { code: :forbidden })
+  result.ok?
+
+  # after
+  Result.success(ctx)
+  Result.failure(ctx, error: { code: :forbidden })
+  result.success?
+  ```
+
+  `result.failure?` is unchanged.
+
+  Migration: search-and-replace `Result.ok(` → `Result.success(`,
+  `Result.fail(` → `Result.failure(`, and `.ok?` → `.success?`. RSpec
+  matchers `be_ok` become `be_success`.
+
+- **`Result#trail` → `Result#successful_steps`** (and `with_trail` →
+  `with_successful_steps`, `trail:` kwarg → `successful_steps:`). The old
+  name was confusing because the failing step is *not* in the list — it
+  lives on `error[:step]`. The new name says exactly what's there.
+
+  ```ruby
+  # before
+  result.trail               # => [:find, :build_contract]
+  result.with_trail([...])
+  Result.ok(ctx, trail: [...])
+
+  # after
+  result.successful_steps    # => [:find, :build_contract]
+  result.with_successful_steps([...])
+  Result.success(ctx, successful_steps: [...])
+  ```
+
+  Migration: search-and-replace `.trail` → `.successful_steps`,
+  `with_trail(` → `with_successful_steps(`, and the keyword argument
+  `trail:` → `successful_steps:`.
+
 ## [0.4.0] - Inline step blocks removed; Pipeline made internal
 
 ### Removed (breaking)

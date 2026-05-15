@@ -135,7 +135,7 @@ loses the structured error payload that lets controllers categorise failures.
 **Shared mutable ctx, steps return a Result wrapping that same ctx.** What
 we picked. The ctx is the value that rides the railway. A step always
 receives the ctx and always returns a `Result` whose `ctx` is that same
-object — `Result.ok(ctx)` on success, `Result.fail(ctx, error: ...)` on
+object — `Result.success(ctx)` on success, `Result.failure(ctx, error: ...)` on
 failure. The Result tells the caller what happened; the ctx tells the
 caller what was built.
 
@@ -210,14 +210,14 @@ sequencer class in the message — no silent fall-through, no
 
 A step is treated as successful unless it explicitly returns a failed
 `Result`. Any other return value (`nil`, `false`, a model, a hash,
-`Result.ok(...)`) is taken as success and the pipeline continues. Only
-`Result.fail(...)` / `failure(ctx, code: ...)` short-circuits.
+`Result.success(...)`) is taken as success and the pipeline continues. Only
+`Result.failure(...)` / `failure(ctx, code: ...)` short-circuits.
 
 The trade-off: a step method that *meant* to write to ctx but accidentally
 returned a stray value silently passes. With strict `Ctx` still in place,
 the missing key surfaces at the next read site rather than at the offending
 line — so you'll find the bug, just one step later. We took the ergonomic
-win after seeing how much `Result.ok(ctx)` ceremony piled up in real
+win after seeing how much `Result.success(ctx)` ceremony piled up in real
 sequencers.
 
 ### The `pipeline` helper isn't required
@@ -258,7 +258,7 @@ here." The validation errors say "the form was bad, here's what to tell the
 user." A failed validation step produces *both*: a `:validation_failed`
 Result *and* a populated contract.
 
-Why both? Because the controller needs both. `result.ok?` tells it whether
+Why both? Because the controller needs both. `result.success?` tells it whether
 to redirect or re-render. `ctx[:contract].errors` tells it what to render.
 `result.error[:code]` tells it the HTTP status.
 
@@ -322,7 +322,7 @@ scope auto-applied.
 We considered `fail_sequence` / `pass_sequence`, but the asymmetry didn't
 exist (success has no i18n concerns to fix), and `failure` reads better
 alongside `result.failure?`. We didn't add a `success` helper because
-`Result.ok(ctx)` is already short and i18n-free.
+`Result.success(ctx)` is already short and i18n-free.
 
 ## Macros
 
@@ -331,7 +331,7 @@ A macro is a reusable step class that encapsulates a common concern.
 We considered making more things macros and considered making fewer things
 macros. The discipline test we landed on: **a macro earns its place when it
 captures a pattern with non-trivial logic that's worth substituting in
-tests, or when removing it would force the same `Result.ok` ceremony into
+tests, or when removing it would force the same `Result.success` ceremony into
 many sequencers.**
 
 The framework's discipline is that adding a new macro should require
@@ -380,10 +380,10 @@ convention.
 We initially proposed `result =` as the setter (`find.result = user`) but
 rejected it: ambiguous (is "result" the Result object or the value?) and
 asymmetric. `succeed_with`/`fail_with` are symmetric, self-documenting, and
-the substitute internally handles wrapping in a `Result.ok` or `Result.fail`.
+the substitute internally handles wrapping in a `Result.success` or `Result.failure`.
 
 Default behaviour for an unconfigured substitute is pass-through:
-`Result.ok(ctx)` with no mutation. This means tests only configure the
+`Result.success(ctx)` with no mutation. This means tests only configure the
 substitutes whose return matters, and everything else just passes through.
 
 ## Sequencers
@@ -424,7 +424,7 @@ Reasons:
   caller passes — but a real sequencer reads many things from ctx. The
   signature was never going to be the source of truth; ctx access is.
   Strict `Ctx` already raises `KeyError` on a missing read, with the
-  failing step name in the trail, so the "fail-fast at the boundary"
+  failing step name in successful_steps, so the "fail-fast at the boundary"
   property is preserved with only a small shift in *where* the failure
   surfaces.
 - **The kwargs-at-the-controller property is preserved** by the class-level
@@ -551,19 +551,19 @@ controllers, not the only way to invoke.
 
 ## Observability
 
-A sequencer's `Result` carries a **trail** — the list of step names that
-completed successfully, in order. On failure, the failing step is *not*
-in the trail; it lives on `error[:step]` instead. The two together tell
-the whole story: trail is "what got done," `error[:step]` is "where it
-stopped."
+A sequencer's `Result` carries **successful_steps** — the list of step
+names that completed successfully, in order. On failure, the failing step
+is *not* in `successful_steps`; it lives on `error[:step]` instead. The two
+together tell the whole story: `successful_steps` is "what got done,"
+`error[:step]` is "where it stopped."
 
-We considered recording outcomes alongside step names (`[[:find_user, :ok],
-...]`) but rejected it as redundant: the trail-plus-error reconstructs the
-same information with no duplication.
+We considered recording outcomes alongside step names (`[[:find_user, :success],
+...]`) but rejected it as redundant: `successful_steps` plus error
+reconstructs the same information with no duplication.
 
 The dispatcher logs a single line per sequencer invocation, summarising
-the trail and (on failure) where it stopped. This split keeps the layers
-honest:
+the successful steps and (on failure) where it stopped. This split keeps
+the layers honest:
 
 - **Pipeline records.** It knows the steps and outcomes, has zero I/O, and
   stays trivially testable.
@@ -577,13 +577,14 @@ For non-controller invocations (jobs, tests, sequencers calling sequencers),
 there's no dispatcher and therefore no log line. That's correct — the
 outermost dispatcher is the right boundary for logging.
 
-Nested sequencer trails are opaque to the parent: the parent's trail
-records `:present` as a single step, not the sub-steps inside Present. If
-Present fails, `error[:step]` carries the inner step name (set by Present's
-own Pipeline before the Result bubbles out), and the parent's trail shows
-`[:present]` was where things stopped. This is enough to debug most
-failures from a single log line; if it isn't, full nested-trail flattening
-is something we can add later without changing the public surface.
+Nested sequencer steps are opaque to the parent: the parent's
+`successful_steps` records `:present` as a single step, not the sub-steps
+inside Present. If Present fails, `error[:step]` carries the inner step
+name (set by Present's own Pipeline before the Result bubbles out), and
+the parent's `successful_steps` shows `[:present]` was where things
+stopped. This is enough to debug most failures from a single log line; if
+it isn't, full nested-step flattening is something we can add later
+without changing the public surface.
 
 ## Coexistence with Trailblazer
 
@@ -697,20 +698,20 @@ been settled:
   original strict choice. Originally a step block had to return a `Result`
   or Pipeline raised `TypeError`. The reasoning was symmetry with strict
   `Ctx` and protection against a block accidentally returning the wrong
-  thing. In practice, real sequencer bodies stack up `Result.ok(ctx)`
+  thing. In practice, real sequencer bodies stack up `Result.success(ctx)`
   trailing lines on every step that mutates ctx but has nothing
   meaningful to return — `ctx[:job_application].save!`, `model.update!(…)`,
   inline assignments. The ceremony piles up fast, and it adds nothing
   because the macro library handles every "real" failure path on its own
   Result-returning macros. Lenient mode now treats any non-failure return
-  as success: only `Result.fail(...)` / `failure(ctx, code: ...)`
+  as success: only `Result.failure(...)` / `failure(ctx, code: ...)`
   short-circuits. The footgun (a block returning a User instance instead
   of writing to ctx and returning ok) still surfaces — strict `Ctx`
   raises `KeyError` at the next read site, with the failing step name
-  in the trail — just one step later than the strict TypeError would
+  in successful_steps — just one step later than the strict TypeError would
   have. Worth the trade for clean step bodies.
 
-- **Pipeline records the trail; dispatcher logs it** — clean separation,
+- **Pipeline records successful_steps; dispatcher logs it** — clean separation,
   no I/O in the hot path.
 
 - **Model::Build added back** — once strict block returns made the inline
@@ -743,7 +744,7 @@ been settled:
   kwargs from controllers and builds the initial ctx itself. Reading the
   body, not the signature, is now the way to know what a sequencer needs;
   strict `Ctx` raises `KeyError` on missing keys with the failing step
-  name in the trail, so the fail-fast property survives intact.
+  name in successful_steps, so the fail-fast property survives intact.
 
   As a side effect, every sequencer now ships with a default `Substitute`
   module (added by `include Hubbado::Sequence::Sequencer`) that exposes
