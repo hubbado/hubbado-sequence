@@ -613,4 +613,4 @@ Sequencers can mint their own codes for domain-specific failures
 
 ## License
 
-Internal Hubbado gem.
+Released under the [MIT License](LICENSE).
