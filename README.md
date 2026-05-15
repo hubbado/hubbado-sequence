@@ -139,11 +139,14 @@ it directly.
 ## Built-in macros
 
 Each macro is a dependency declared on a sequencer with `dependency :name, Macros::...`
-and wired via `.configure(instance)` in `.build`.
+and wired via `.configure(instance)` in `.build`. The built-in macros are
+grouped by the gem they expect to be available.
 
-The model macros are designed to work with ActiveRecord models.
+### ActiveRecord macros
 
-### Model::Find
+Designed to work with [ActiveRecord](https://github.com/rails/rails) models.
+
+#### Model::Find
 
 Fetches a record using `model.find_by(id:)` and writes it to `ctx[as]`.
 
@@ -159,7 +162,7 @@ p.invoke(:find, User, as: :user, id_key: %i[params id])  # nested path (default)
 | **Writes** | `ctx[as]` — the found record |
 | **Fails** | `:not_found` when `find_by` returns nil |
 
-### Model::Build
+#### Model::Build
 
 Instantiates a new record and writes it to `ctx[as]`.
 
@@ -174,9 +177,12 @@ p.invoke(:build_record, User, as: :user, attributes: { role: :admin })
 | **Writes** | `ctx[as]` — the new instance |
 | **Fails** | never |
 
-The contract macros are designed to work with [Reform](https://github.com/trailblazer/reform) form objects.
+### Reform macros
 
-### Contract::Build
+Designed to work with [Reform](https://github.com/trailblazer/reform) form
+objects (contracts).
+
+#### Contract::Build
 
 Wraps a model in a contract and writes it to `ctx[:contract]`.
 
@@ -191,7 +197,7 @@ p.invoke(:build_contract, Contracts::CreateUser)         # no model
 | **Writes** | `ctx[:contract]` |
 | **Fails** | never |
 
-### Contract::Deserialize
+#### Contract::Deserialize
 
 Deserializes params into the contract via `contract.deserialize(params)`.
 
@@ -206,7 +212,7 @@ p.invoke(:deserialize_to_contract, from: :raw_params)
 | **Writes** | nothing (mutates the contract in place) |
 | **Fails** | never (no-op when the `from:` path is absent) |
 
-### Contract::Validate
+#### Contract::Validate
 
 Validates the contract via `contract.validate(params)` and checks `errors`.
 
@@ -221,7 +227,7 @@ p.invoke(:validate)   # contract already deserialized; passes empty params
 | **Writes** | nothing (populates `contract.errors` on invalid) |
 | **Fails** | `:validation_failed` when `contract.errors` is non-empty |
 
-### Contract::Persist
+#### Contract::Persist
 
 Saves the contract via `contract.save`.
 
@@ -235,7 +241,12 @@ p.invoke(:persist)
 | **Writes** | nothing |
 | **Fails** | `:persist_failed` when `save` returns false |
 
-### Policy::Check
+### hubbado-policy macros
+
+Designed to work with the
+[hubbado-policy](https://github.com/hubbado/hubbado-policy) gem.
+
+#### Policy::Check
 
 Builds a policy and calls the named action to authorise the operation.
 
@@ -243,9 +254,9 @@ Builds a policy and calls the named action to authorise the operation.
 p.invoke(:check_policy, Policies::User, :user, :update)
 ```
 
-Designed to work with the [hubbado-policy](https://github.com/hubbado/hubbado-policy) gem.
-The policy class must respond to `.build(current_user, record)`; the instance must
-respond to the action method and return an object with `permitted?`.
+The policy class must respond to `.build(current_user, record)`; the
+instance must respond to the action method and return an object with
+`permitted?`.
 
 | | |
 |---|---|
