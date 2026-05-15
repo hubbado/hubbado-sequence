@@ -24,9 +24,8 @@ Then run `bundle install`.
 ## Requirements
 
 - Ruby >= 3.3
-- [evt-dependency](https://github.com/eventide-project/dependency) — powers
-  the injectable macro / nested-sequencer pattern (declared as a runtime
-  dependency of the gem).
+- [evt-dependency](https://github.com/eventide-project/dependency) —
+  dependency injection (declared as a runtime dependency of the gem).
 
 Optional, depending on which macros you use:
 
