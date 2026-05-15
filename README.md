@@ -429,10 +429,10 @@ RSpec.describe Seqs::PresentUser do
     seq.find.succeed_with(user)
     seq.build_contract.succeed_with(contract)
 
-    result = seq.(Hubbado::Sequence::Ctx.build(
+    result = seq.(
       params:       { id: 1 },
       current_user: User.new
-    ))
+    )
 
     expect(result).to be_ok
     expect(seq.find.fetched?(as: :user)).to be true
@@ -444,10 +444,10 @@ RSpec.describe Seqs::PresentUser do
     seq = described_class.new
     seq.find.fail_with(code: :not_found)
 
-    result = seq.(Hubbado::Sequence::Ctx.build(
+    result = seq.(
       params:       { id: 999 },
       current_user: User.new
-    ))
+    )
 
     expect(result.error[:code]).to eq(:not_found)
     expect(seq.build_contract.built?).to be false
@@ -472,10 +472,10 @@ RSpec.describe Seqs::UpdateUser do
     contract = Contracts::UpdateUser.new(user)
     seq.present.succeed_with(user: user, contract: contract)
 
-    result = seq.(Hubbado::Sequence::Ctx.build(
+    result = seq.(
       params:       { user: { email: "new@example.com" } },
       current_user: User.new
-    ))
+    )
 
     expect(result).to be_ok
     expect(seq.present.called?).to be true
@@ -486,10 +486,10 @@ RSpec.describe Seqs::UpdateUser do
     seq = described_class.new
     seq.present.fail_with(code: :forbidden)
 
-    result = seq.(Hubbado::Sequence::Ctx.build(
+    result = seq.(
       params:       { user: {} },
       current_user: User.new
-    ))
+    )
 
     expect(result.failure?).to be true
     expect(result.error[:code]).to eq(:forbidden)
@@ -501,10 +501,10 @@ RSpec.describe Seqs::UpdateUser do
     seq = described_class.new
     seq.present.fail_with(code: :not_found)
 
-    result = seq.(Hubbado::Sequence::Ctx.build(
+    result = seq.(
       params:       { id: 999, user: {} },
       current_user: User.new
-    ))
+    )
 
     expect(result.error[:code]).to eq(:not_found)
     expect(seq.validate.validated?).to be false
