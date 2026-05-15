@@ -99,15 +99,18 @@ The framework has three layers:
   (value object wrapping ctx + ok/fail flag + structured error + i18n
   scope), a Ctx (strict hash carrying inputs, intermediate values, and
   outputs), and the structured error payload.
-- **Optional** — a Pipeline that runs a sequence of named steps,
-  short-circuits on failure, and tags errors with their step name. For
-  sequencers that want railway-style composition.
+- **Railway helper** — a Sequencer's `pipeline(ctx) { |p| ... }` helper
+  runs a sequence of named steps, short-circuits on failure, and tags
+  errors with their step name. The Pipeline class behind it is an
+  implementation detail; sequencers reach it through the helper, not
+  directly.
 - **Reusable steps** — Macros that capture common concerns (model lookup,
   contract handling, policy checks) as configurable, substitutable
   dependencies.
 
-A sequencer doesn't have to use Pipeline. The minimum contract is "returns a
-Result." Trivial sequencers can hand-build the Result and skip the rest.
+A sequencer doesn't have to use the `pipeline` helper. The minimum
+contract is "returns a Result." Trivial sequencers can hand-build the
+Result and skip the rest.
 
 ## The Result and Ctx Shape
 
@@ -191,26 +194,17 @@ Each `step` takes a name. The step name is mandatory. This forces every
 step to be identifiable in failures and logs, and reads as documentation —
 you can see the sequencer's shape at a glance.
 
-The chained form is also supported but rarely used because the block form
-scales better — intermediate Ruby (`puts`, logging, conditionals) all read
-like ordinary sequential code rather than fighting the chain.
+### Auto-dispatch is the only step form
 
-### Auto-dispatch via the `pipeline(ctx)` helper
+`p.step(:foo)` always dispatches to `self.foo(ctx)` on the sequencer. No
+inline-block step bodies — every step is a method on the sequencer with
+the same name. This makes the `call` body a pure table of contents: the
+reader scans `p.step(:...)` lines to see the sequence shape, then jumps
+to the method when they want details.
 
-When a sequencer's steps are mostly local methods, every
-`.step(:foo) { |ctx| foo(ctx) }` line repeats the name twice and the
-wrapping block adds nothing. `pipeline(ctx)` builds a Pipeline configured
-to auto-dispatch blockless steps to a method of the same name on the
-sequencer. A block beats auto-dispatch when both are present, so steps
-that don't fit the pattern still work the old way.
-
-`Pipeline.(ctx)` (without the helper) keeps the strict "block required"
-behaviour and raises `ArgumentError` on a blockless step. The auto-dispatch
-mode is opt-in by which constructor you use, so tests of the Pipeline
-class itself, or any code that doesn't have a sequencer to dispatch to,
-keep their current semantics. Missing methods raise `NoMethodError` with
-the step name and the sequencer class in the message — no silent
-fall-through, no `respond_to_missing?` magic.
+Missing methods raise `NoMethodError` with the step name and the
+sequencer class in the message — no silent fall-through, no
+`respond_to_missing?` magic.
 
 ### Lenient return convention
 
@@ -219,18 +213,36 @@ A step is treated as successful unless it explicitly returns a failed
 `Result.ok(...)`) is taken as success and the pipeline continues. Only
 `Result.fail(...)` / `failure(ctx, code: ...)` short-circuits.
 
-The trade-off: a block that *meant* to write to ctx but accidentally
+The trade-off: a step method that *meant* to write to ctx but accidentally
 returned a stray value silently passes. With strict `Ctx` still in place,
 the missing key surfaces at the next read site rather than at the offending
 line — so you'll find the bug, just one step later. We took the ergonomic
 win after seeing how much `Result.ok(ctx)` ceremony piled up in real
 sequencers.
 
-### Pipeline isn't required
+### The `pipeline` helper isn't required
 
 A sequencer's only contract is "returns a Result". It can hand-build one.
-This is a feature: it keeps Pipeline honest by forcing it to earn its place
-over raw Ruby, and it lets trivial sequencers stay trivial.
+This is a feature: it keeps the helper honest by forcing it to earn its
+place over raw Ruby, and it lets trivial sequencers stay trivial.
+
+### Pipeline is internal
+
+The Pipeline class behind the `pipeline(ctx)` helper is not part of the
+public API. Sequencers reach Pipeline through `pipeline(ctx)`, never
+through `Pipeline.(ctx)` directly. Two reasons:
+
+- **No use case for the bare class.** Without inline-block step bodies
+  every step is a method on the dispatcher, so a Pipeline without a
+  dispatcher can't run anything. The only callers that ever wanted bare
+  `Pipeline.()` were the framework's own tests.
+- **One way to do it.** A user-facing class that only works through one
+  specific call site is a confusion magnet. Folding it into a single
+  helper removes the "which one do I call?" question entirely.
+
+Framework tests still exercise Pipeline directly, but they construct it
+the same way the helper does — `Pipeline.new(ctx, dispatcher: self)` —
+with a test-local dispatcher that holds the step methods.
 
 ## Errors
 
@@ -588,9 +600,9 @@ same shape would defeat the purpose.
 
 ## What's Deliberately Not Included
 
-- **Conditional steps / branching DSL.** Inline `if`/`unless` in step blocks
-  handles this. We don't want a `step :foo, if: :bar?` DSL because it grows
-  without bound.
+- **Conditional steps / branching DSL.** Plain Ruby `if`/`unless` around
+  `p.step(:foo)` lines inside the `pipeline(ctx)` block handles this. We
+  don't want a `step :foo, if: :bar?` DSL because it grows without bound.
 - **`pass` / `fail` step variants.** Pipeline's `step` is the only step
   type. Logging or cleanup that should run regardless of pipeline state can
   be done in the controller after `run_sequence` returns.
@@ -641,6 +653,37 @@ same shape would defeat the purpose.
 
 For posterity, things that were originally open questions and have since
 been settled:
+
+- **Inline step blocks removed; Pipeline made internal** — originally a
+  `step(:name)` accepted either a block (`step(:foo) { |ctx| ... }`) or
+  was blockless and auto-dispatched to `self.foo(ctx)`. Block beat
+  dispatch when both were present. The reasoning was that one-line
+  steps shouldn't need a separate method.
+
+  In practice, mixed step shapes broke scanability. Reading a real
+  sequencer body now matters more than writing it — Hubbado does most
+  new development with AI assistance, and review time dominates. Every
+  `p.step(:name) { ... }` line forces the reader to parse "is this a
+  bare step or does it have a body?" before they can move on. Uniform
+  `p.step(:name)` lines remove that cost: every step looks identical at
+  the call site, the sequencer body becomes a literal table of
+  contents, and details live in private methods named at the same
+  abstraction level.
+
+  At the same time, `Pipeline.(ctx)` (the bare class entry point) lost
+  the only reason it existed. With every step required to be a method
+  on the dispatcher, a Pipeline without a dispatcher can't run
+  anything. The class is still there as the implementation behind
+  `pipeline(ctx)`, but it's no longer part of the public API —
+  sequencers reach it only through the helper.
+
+  The trade-off is that genuinely trivial one-line steps now require a
+  one-line method (the `accept_tcs` shape, where the method body is
+  `user.update!(tcs_accepted: true)` and the method name repeats the
+  step name). We took the consistency win — eye velocity across the
+  step list matters more than saving an indirection on individual
+  trivial steps, and a sequencer body that mixes styles is the worst
+  outcome of all.
 
 - **`evt-dependency` substitute compatibility** — confirmed working. We
   use evt-dependency's "static mimic with mixed-in `Substitute` module"

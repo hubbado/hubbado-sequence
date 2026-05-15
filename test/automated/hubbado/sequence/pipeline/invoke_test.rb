@@ -1,10 +1,9 @@
 require_relative "../../../../test_init"
 
-# `p.invoke(:name, *args, **kwargs)` is shorthand for
-# `p.step(:name) { |c| dispatcher.send(:name).(c, *args, **kwargs) }`.
-# Use it when the step is invoking a declared dependency — a macro
-# (`Macros::Model::Find`) or a nested sequencer — rather than a local
-# instance method.
+# `p.invoke(:name, *args, **kwargs)` runs a declared dependency on the
+# dispatcher: `dispatcher.send(:name).(ctx, *args, **kwargs)`. Use it when
+# the step is invoking a macro (`Macros::Model::Find`) or a nested
+# sequencer rather than a local instance method.
 
 context "Hubbado" do
   context "Sequencer" do
@@ -119,22 +118,6 @@ context "Hubbado" do
           result = seq.()
           assert result.ok?
           assert result.trail == [:returns_nil]
-        end
-      end
-
-      context "without a dispatcher" do
-        test "raises a clear error explaining invoke needs a sequencer" do
-          captured = nil
-          begin
-            Hubbado::Sequence::Pipeline.() do |p|
-              p.invoke(:find, model, as: :user)
-            end
-          rescue ArgumentError => e
-            captured = e
-          end
-
-          refute captured.nil?
-          assert captured.message.include?("dispatcher")
         end
       end
 

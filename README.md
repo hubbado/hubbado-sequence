@@ -114,29 +114,27 @@ class UsersController < ApplicationController
 end
 ```
 
-## The three step shapes
+## The two step shapes
 
 ```ruby
 pipeline(ctx) do |p|
-  p.invoke(:find, :user)                # declared dependency (macro or sequencer)
-  p.step(:scrub_params)                 # local method `def scrub_params(ctx)`
-  p.step(:audit) { |c| AuditLog.append(c[:user]) }   # inline block
+  p.invoke(:find, User, as: :user)  # declared dependency (macro or sequencer)
+  p.step(:scrub_params)             # local method `def scrub_params(ctx)`
 end
 ```
 
 - `p.invoke(:foo, *args, **kwargs)` — a `dependency :foo, …` declared on the
   sequencer (a macro or a nested sequencer). Calls
   `dispatcher.foo.(ctx, *args, **kwargs)`.
-- `p.step(:foo)` — a local instance method. Auto-dispatches to
-  `self.foo(ctx)`.
-- `p.step(:foo) { |ctx| … }` — explicit inline block.
+- `p.step(:foo)` — a local instance method. Dispatches to `self.foo(ctx)`.
 
-The `pipeline(ctx)` helper (lowercase `p`) is what enables blockless
-`p.step(:foo)` auto-dispatch — it builds a Pipeline that knows which
-sequencer to dispatch back to. `Pipeline.(ctx)` (capital `P`) is the bare
-constructor with no dispatcher and requires every `step` to have a block.
-Use `pipeline(ctx)` inside a sequencer; `Pipeline.(ctx)` is mainly useful
-for framework tests.
+Every `step` is a method on the sequencer with the same name as the step.
+This makes the `call` body a table of contents — scan `p.step(:...)` lines
+to see the sequence shape, jump to the method for details.
+
+`pipeline(ctx)` is the only way to build a pipeline. The underlying
+Pipeline class is an implementation detail; sequencers do not construct
+it directly.
 
 ## Built-in macros
 
@@ -273,8 +271,14 @@ def call(ctx)
       t.invoke(:persist)
     end
 
-    p.step(:notify) { |c| UserMailer.updated(c[:user]).deliver_later }
+    p.step(:notify)
   end
+end
+
+private
+
+def notify(ctx)
+  UserMailer.updated(ctx[:user]).deliver_later
 end
 ```
 

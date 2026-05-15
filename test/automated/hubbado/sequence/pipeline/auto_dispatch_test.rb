@@ -1,9 +1,9 @@
 require_relative "../../../../test_init"
 
 # Auto-dispatch: when a Pipeline is built via the sequencer's `pipeline(ctx)`
-# helper, `step(:foo)` with no block dispatches to `self.foo(ctx)` on the
-# sequencer. This collapses the boilerplate of step blocks that just delegate
-# to a same-named method.
+# helper, `step(:foo)` dispatches to `self.foo(ctx)` on the sequencer. This
+# is the only step form — every step name must resolve to a method of the
+# same name on the dispatcher.
 
 context "Hubbado" do
   context "Sequencer" do
@@ -32,7 +32,7 @@ context "Hubbado" do
           end
         end
 
-        test "step(:foo) with no block calls self.foo(ctx)" do
+        test "step(:foo) calls self.foo(ctx)" do
           result = seq_class.(value: 10)
 
           assert result.ok?
@@ -69,36 +69,6 @@ context "Hubbado" do
           assert result.error[:code] == :bad
           assert result.error[:step] == :bad
           assert result.trail == %i[fine]
-        end
-      end
-
-      context "block overrides auto-dispatch" do
-        seq_class = Class.new do
-          include Hubbado::Sequence::Sequencer
-          define_singleton_method(:name) { "Seqs::Override" }
-
-          define_method(:call) do |ctx|
-            pipeline(ctx)
-              .step(:present) { |c| run_present(c) }   # block wins over dispatch
-              .step(:finish)                            # → self.finish(ctx)
-              .result
-          end
-
-          define_method(:run_present) { |ctx| ctx[:presented] = true; Hubbado::Sequence::Result.ok(ctx) }
-          define_method(:finish)      { |ctx| ctx[:finished]  = true; Hubbado::Sequence::Result.ok(ctx) }
-        end
-
-        test "uses the block when one is given" do
-          result = seq_class.()
-
-          assert result.ctx[:presented]
-          assert result.ctx[:finished]
-        end
-
-        test "the step name in the trail is unchanged" do
-          result = seq_class.()
-
-          assert result.trail == %i[present finish]
         end
       end
 
@@ -153,18 +123,6 @@ context "Hubbado" do
           refute captured.nil?
           assert captured.message.include?("nope")
           assert captured.message.include?("Seqs::Missing")
-        end
-      end
-
-      context "Pipeline.() (no helper) with no block still raises" do
-        # Pipeline.() doesn't carry a dispatcher, so step(:foo) with no block
-        # has nowhere to go — preserve the strict-by-default behaviour.
-        test "step without a block raises when no dispatcher is set" do
-          pipe = Hubbado::Sequence::Pipeline.(value: 1)
-
-          assert_raises ArgumentError do
-            pipe.step(:nothing)
-          end
         end
       end
     end

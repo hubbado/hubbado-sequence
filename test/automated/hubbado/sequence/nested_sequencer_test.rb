@@ -32,11 +32,11 @@ context "Hubbado" do
         end
 
         define_method(:call) do |ctx|
-          Hubbado::Sequence::Pipeline.(ctx)
-            .step(:find_user)      { |c| find.(c, model_class, as: :user) }
-            .step(:build_contract) { |c| build_contract.(c, contract_class, :user) }
-            .step(:check_policy)   { |c| check_policy.(c, policy_class, :user, :update) }
-            .result
+          pipeline(ctx) do |p|
+            p.invoke(:find,           model_class,    as: :user)
+            p.invoke(:build_contract, contract_class, :user)
+            p.invoke(:check_policy,   policy_class,   :user, :update)
+          end
         end
       end
 
@@ -59,11 +59,11 @@ context "Hubbado" do
         end
 
         define_method(:call) do |ctx|
-          Hubbado::Sequence::Pipeline.(ctx)
-            .step(:present)  { |c| present.(c) }
-            .step(:validate) { |c| validate.(c, from: %i[params user]) }
-            .step(:persist)  { |c| persist.(c) }
-            .result
+          pipeline(ctx) do |p|
+            p.invoke(:present)
+            p.invoke(:validate, from: %i[params user])
+            p.invoke(:persist)
+          end
         end
       end
 
@@ -114,11 +114,11 @@ context "Hubbado" do
             end
           end
           define_method(:call) do |ctx|
-            Hubbado::Sequence::Pipeline.(ctx)
-              .step(:find_user)      { |c| find.(c, model_class, as: :user) }
-              .step(:build_contract) { |c| build_contract.(c, contract_class, :user) }
-              .step(:check_policy)   { |c| check_policy.(c, denying_policy, :user, :update) }
-              .result
+            pipeline(ctx) do |p|
+              p.invoke(:find,           model_class,    as: :user)
+              p.invoke(:build_contract, contract_class, :user)
+              p.invoke(:check_policy,   denying_policy, :user, :update)
+            end
           end
         end
 
@@ -136,11 +136,11 @@ context "Hubbado" do
             end
           end
           define_method(:call) do |ctx|
-            Hubbado::Sequence::Pipeline.(ctx)
-              .step(:present)  { |c| present.(c) }
-              .step(:validate) { |c| validate.(c, from: %i[params user]) }
-              .step(:persist)  { |c| persist.(c) }
-              .result
+            pipeline(ctx) do |p|
+              p.invoke(:present)
+              p.invoke(:validate, from: %i[params user])
+              p.invoke(:persist)
+            end
           end
         end
 

@@ -4,6 +4,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.4.0] - Inline step blocks removed; Pipeline made internal
+
+### Removed (breaking)
+
+- **Inline block form of `step` removed.** `p.step(:name) { |ctx| ... }`
+  is no longer supported. Every step must be a method on the sequencer
+  with the same name:
+
+  ```ruby
+  # before
+  p.step(:notify) { |ctx| UserMailer.updated(ctx[:user]).deliver_later }
+
+  # after
+  p.step(:notify)          # dispatches to def notify(ctx)
+  ```
+
+  Migration: extract each inline block to a private method of the same
+  name. One method per step; one method per responsibility.
+
+- **`Pipeline` is no longer part of the public API.** `Pipeline.(ctx)`
+  and `Pipeline.new` are internal to the framework. Sequencers build
+  pipelines exclusively through the `pipeline(ctx)` helper.
+
+  Migration: any direct `Pipeline.(ctx)` or `Pipeline.new(ctx, ...)`
+  call sites must be replaced with a sequencer that uses `pipeline(ctx)`.
+
+### Changed
+
+- **`Pipeline#step` always auto-dispatches.** With inline blocks gone,
+  `step(:foo)` unconditionally dispatches to `self.foo(ctx)` on the
+  sequencer — no block-versus-dispatch ambiguity. Missing methods raise
+  `NoMethodError` with the step name and the sequencer class in the
+  message.
+
 ## [0.3.0] - Contract::Deserialize macro, Runner extraction, Path helper
 
 ### Added

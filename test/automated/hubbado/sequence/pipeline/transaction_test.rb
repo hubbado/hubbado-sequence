@@ -33,14 +33,25 @@ context "Hubbado" do
           end
         }
 
+        dispatcher_ok = -> {
+          Class.new do
+            define_method(:before)      { |ctx| ctx[:before] = true; Hubbado::Sequence::Result.ok(ctx) }
+            define_method(:inside)      { |ctx| ctx[:inside] = true; Hubbado::Sequence::Result.ok(ctx) }
+            define_method(:after)       { |ctx| ctx[:after]  = true; Hubbado::Sequence::Result.ok(ctx) }
+            define_method(:fail_inside) { |ctx| Hubbado::Sequence::Result.fail(ctx, error: { code: :boom }) }
+            define_method(:fail_first)  { |ctx| Hubbado::Sequence::Result.fail(ctx, error: { code: :nope }) }
+            define_method(:should_not_run) { |_ctx| raise "should not be called" }
+          end.new
+        }
+
         context "without ActiveRecord defined" do
           test "runs the block inline as part of the same pipeline" do
-            pipeline = Hubbado::Sequence::Pipeline.()
-              .step(:before) { |ctx| ctx[:before] = true; Hubbado::Sequence::Result.ok(ctx) }
+            pipeline = Hubbado::Sequence::Pipeline.new(Hubbado::Sequence::Ctx.new, dispatcher: dispatcher_ok.call)
+              .step(:before)
               .transaction do |p|
-                p.step(:inside) { |ctx| ctx[:inside] = true; Hubbado::Sequence::Result.ok(ctx) }
+                p.step(:inside)
               end
-              .step(:after) { |ctx| ctx[:after] = true; Hubbado::Sequence::Result.ok(ctx) }
+              .step(:after)
 
             assert pipeline.result.ok?
             assert pipeline.result.ctx[:before]
@@ -50,11 +61,11 @@ context "Hubbado" do
           end
 
           test "propagates an inner failure outward" do
-            pipeline = Hubbado::Sequence::Pipeline.()
+            pipeline = Hubbado::Sequence::Pipeline.new(Hubbado::Sequence::Ctx.new, dispatcher: dispatcher_ok.call)
               .transaction do |p|
-                p.step(:fail_inside) { |ctx| Hubbado::Sequence::Result.fail(ctx, error: { code: :boom }) }
+                p.step(:fail_inside)
               end
-              .step(:after) { |ctx| Hubbado::Sequence::Result.ok(ctx) }
+              .step(:after)
 
             assert pipeline.result.failure?
             assert pipeline.result.error[:code] == :boom
@@ -65,9 +76,9 @@ context "Hubbado" do
         context "with ActiveRecord defined" do
           test "wraps inner steps in ActiveRecord::Base.transaction" do
             with_active_record.call do
-              Hubbado::Sequence::Pipeline.()
+              Hubbado::Sequence::Pipeline.new(Hubbado::Sequence::Ctx.new, dispatcher: dispatcher_ok.call)
                 .transaction do |p|
-                  p.step(:inside) { |ctx| Hubbado::Sequence::Result.ok(ctx) }
+                  p.step(:inside)
                 end
 
               assert ActiveRecord.transactions == 1
@@ -77,9 +88,9 @@ context "Hubbado" do
 
           test "raises ActiveRecord::Rollback when an inner step fails" do
             with_active_record.call do
-              Hubbado::Sequence::Pipeline.()
+              Hubbado::Sequence::Pipeline.new(Hubbado::Sequence::Ctx.new, dispatcher: dispatcher_ok.call)
                 .transaction do |p|
-                  p.step(:inside) { |ctx| Hubbado::Sequence::Result.fail(ctx, error: { code: :nope }) }
+                  p.step(:fail_inside)
                 end
 
               assert ActiveRecord.rollbacks == 1
@@ -88,22 +99,22 @@ context "Hubbado" do
 
           test "the failed Result still propagates to the caller" do
             with_active_record.call do
-              pipeline = Hubbado::Sequence::Pipeline.()
+              pipeline = Hubbado::Sequence::Pipeline.new(Hubbado::Sequence::Ctx.new, dispatcher: dispatcher_ok.call)
                 .transaction do |p|
-                  p.step(:inside) { |ctx| Hubbado::Sequence::Result.fail(ctx, error: { code: :nope }) }
+                  p.step(:fail_inside)
                 end
 
               assert pipeline.result.failure?
-              assert pipeline.result.error[:code] == :nope
+              assert pipeline.result.error[:code] == :boom
             end
           end
 
           test "skips a transaction when the pipeline has already failed" do
             with_active_record.call do
-              Hubbado::Sequence::Pipeline.()
-                .step(:fail_first) { |ctx| Hubbado::Sequence::Result.fail(ctx, error: { code: :nope }) }
+              Hubbado::Sequence::Pipeline.new(Hubbado::Sequence::Ctx.new, dispatcher: dispatcher_ok.call)
+                .step(:fail_first)
                 .transaction do |p|
-                  p.step(:should_not_run) { |ctx| raise "should not be called" }
+                  p.step(:should_not_run)
                 end
 
               assert ActiveRecord.transactions == 0
