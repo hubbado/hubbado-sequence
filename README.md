@@ -423,7 +423,13 @@ same error attrs as the underlying error hash (`code:`, `i18n_key:`,
 
 ## Testing
 
-Tests use [TestBench](https://github.com/test-bench/test-bench).
+The gem doesn't prescribe a testing library — sequencers, macros, and
+substitutes are plain Ruby objects that work with whatever you use.
+The examples below are written in
+[TestBench](https://github.com/test-bench/test-bench) (what we use at
+Hubbado), but the same patterns translate directly to RSpec, Minitest,
+or any other framework.
+
 `Seqs::UpdateUser.new` returns a sequencer with all dependencies installed
 as substitutes. Tests configure the substitutes for the scenario at hand.
 `Seqs::UpdateUser.build` runs the production wiring (the real macros).
