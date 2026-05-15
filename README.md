@@ -412,46 +412,59 @@ same error attrs as the underlying error hash (`code:`, `i18n_key:`,
 
 ## Testing
 
-`described_class.new` returns a sequencer with all dependencies installed as
-substitutes. Tests configure the substitutes for the scenario at hand.
-`described_class.build` runs the production wiring (the real macros).
+Tests use [TestBench](https://github.com/test-bench/test-bench).
+`Seqs::UpdateUser.new` returns a sequencer with all dependencies installed
+as substitutes. Tests configure the substitutes for the scenario at hand.
+`Seqs::UpdateUser.build` runs the production wiring (the real macros).
 Substitutes default to pass-through `Result.success(ctx)` so a test only
 configures the ones whose return matters.
 
 ### Substituting macros directly
 
 ```ruby
-RSpec.describe Seqs::UpdateUser::Present do
-  it "loads the user, builds the contract, and passes the policy" do
-    seq = described_class.new
-    user     = User.new(id: 1, email: "old@example.com")
-    contract = Contracts::UpdateUser.new(user)
-    seq.find.succeed_with(user)
-    seq.build_contract.succeed_with(contract)
+context "Seqs::UpdateUser::Present happy path" do
+  user     = User.new(id: 1, email: "old@example.com")
+  contract = Contracts::UpdateUser.new(user)
 
-    result = seq.(
-      params:       { id: 1 },
-      current_user: User.new
-    )
+  seq = Seqs::UpdateUser::Present.new
+  seq.find.succeed_with(user)
+  seq.build_contract.succeed_with(contract)
 
-    expect(result).to be_success
-    expect(seq.find.fetched?(as: :user)).to be true
-    expect(seq.build_contract.built?).to be true
-    expect(seq.check_policy.checked?).to be true
+  result = seq.(params: { id: 1 }, current_user: User.new)
+
+  test "Is success" do
+    assert(result.success?)
   end
 
-  it "fails with :not_found when the user doesn't exist" do
-    seq = described_class.new
-    seq.find.fail_with(code: :not_found)
+  test "Fetched the user from ctx[:user]" do
+    assert(seq.find.fetched?(as: :user))
+  end
 
-    result = seq.(
-      params:       { id: 999 },
-      current_user: User.new
-    )
+  test "Built the contract" do
+    assert(seq.build_contract.built?)
+  end
 
-    expect(result.error[:code]).to eq(:not_found)
-    expect(seq.build_contract.built?).to be false
-    expect(seq.check_policy.checked?).to be false
+  test "Checked the policy" do
+    assert(seq.check_policy.checked?)
+  end
+end
+
+context "Seqs::UpdateUser::Present when the user is not found" do
+  seq = Seqs::UpdateUser::Present.new
+  seq.find.fail_with(code: :not_found)
+
+  result = seq.(params: { id: 999 }, current_user: User.new)
+
+  test "Fails with :not_found" do
+    assert(result.error[:code] == :not_found)
+  end
+
+  test "Does not build the contract" do
+    refute(seq.build_contract.built?)
+  end
+
+  test "Does not check the policy" do
+    refute(seq.check_policy.checked?)
   end
 end
 ```
@@ -464,51 +477,70 @@ Every sequencer ships a default `Substitute` module (installed by
 short-circuit a nested sequencer without reaching into its inner pieces:
 
 ```ruby
-RSpec.describe Seqs::UpdateUser do
-  it "updates the user when present succeeds" do
-    seq = described_class.new
+context "Seqs::UpdateUser happy path" do
+  user     = User.new(id: 1, email: "old@example.com")
+  contract = Contracts::UpdateUser.new(user)
 
-    user     = User.new(id: 1, email: "old@example.com")
-    contract = Contracts::UpdateUser.new(user)
-    seq.present.succeed_with(user: user, contract: contract)
+  seq = Seqs::UpdateUser.new
+  seq.present.succeed_with(user: user, contract: contract)
 
-    result = seq.(
-      params:       { user: { email: "new@example.com" } },
-      current_user: User.new
-    )
+  result = seq.(
+    params:       { user: { email: "new@example.com" } },
+    current_user: User.new
+  )
 
-    expect(result).to be_success
-    expect(seq.present.called?).to be true
-    expect(seq.persist.persisted?).to be true
+  test "Is success" do
+    assert(result.success?)
   end
 
-  it "stops when present denies access" do
-    seq = described_class.new
-    seq.present.fail_with(code: :forbidden)
-
-    result = seq.(
-      params:       { user: {} },
-      current_user: User.new
-    )
-
-    expect(result.failure?).to be true
-    expect(result.error[:code]).to eq(:forbidden)
-    expect(seq.validate.validated?).to be false
-    expect(seq.persist.persisted?).to be false
+  test "Calls Present" do
+    assert(seq.present.called?)
   end
 
-  it "stops when present cannot find the record" do
-    seq = described_class.new
-    seq.present.fail_with(code: :not_found)
+  test "Persists the contract" do
+    assert(seq.persist.persisted?)
+  end
+end
 
-    result = seq.(
-      params:       { id: 999, user: {} },
-      current_user: User.new
-    )
+context "Seqs::UpdateUser when Present denies access" do
+  seq = Seqs::UpdateUser.new
+  seq.present.fail_with(code: :forbidden)
 
-    expect(result.error[:code]).to eq(:not_found)
-    expect(seq.validate.validated?).to be false
-    expect(seq.persist.persisted?).to be false
+  result = seq.(params: { user: {} }, current_user: User.new)
+
+  test "Fails" do
+    assert(result.failure?)
+  end
+
+  test "Fails with :forbidden" do
+    assert(result.error[:code] == :forbidden)
+  end
+
+  test "Does not validate" do
+    refute(seq.validate.validated?)
+  end
+
+  test "Does not persist" do
+    refute(seq.persist.persisted?)
+  end
+end
+
+context "Seqs::UpdateUser when Present cannot find the record" do
+  seq = Seqs::UpdateUser.new
+  seq.present.fail_with(code: :not_found)
+
+  result = seq.(params: { id: 999, user: {} }, current_user: User.new)
+
+  test "Fails with :not_found" do
+    assert(result.error[:code] == :not_found)
+  end
+
+  test "Does not validate" do
+    refute(seq.validate.validated?)
+  end
+
+  test "Does not persist" do
+    refute(seq.persist.persisted?)
   end
 end
 ```
