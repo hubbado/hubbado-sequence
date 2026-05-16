@@ -19,7 +19,7 @@ module Hubbado
             if contract.errors.empty?
               Result.success(ctx)
             else
-              Result.failure(ctx, error: { code: :validation_failed })
+              Result.failure(ctx, code: :validation_failed)
             end
           end
 
@@ -37,7 +37,7 @@ module Hubbado
             end
 
             record def call(ctx, from: nil)
-              return Result.failure(ctx, error: @configured_error) if @configured_error
+              return Result.failure(ctx, **@configured_error) if @configured_error
 
               Result.success(ctx)
             end

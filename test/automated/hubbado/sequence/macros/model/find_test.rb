@@ -38,7 +38,7 @@ context "Hubbado" do
             result = find.(ctx, model, as: :user)
 
             assert result.failure?
-            assert result.error[:code] == :not_found
+            assert result.code == :not_found
           end
 
           test "ctx is unchanged on not found" do
@@ -140,7 +140,7 @@ context "Hubbado" do
             result = seq.find.(Hubbado::Sequence::Ctx.new, model, as: :user)
 
             assert result.failure?
-            assert result.error[:code] == :not_found
+            assert result.code == :not_found
           end
 
           test "fetched? records calls and matches partial kwargs" do

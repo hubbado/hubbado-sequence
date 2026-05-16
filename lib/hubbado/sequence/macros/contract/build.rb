@@ -31,7 +31,7 @@ module Hubbado
             end
 
             record def call(ctx, contract_class, attr_name = nil)
-              return Result.failure(ctx, error: @configured_error) if @configured_error
+              return Result.failure(ctx, **@configured_error) if @configured_error
 
               ctx[:contract] = @return_value if @configured_success
               Result.success(ctx)

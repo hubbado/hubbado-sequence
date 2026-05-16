@@ -26,7 +26,7 @@ context "Hubbado" do
             result = persist.(ctx)
 
             assert result.failure?
-            assert result.error[:code] == :persist_failed
+            assert result.code == :persist_failed
           end
         end
 
@@ -62,7 +62,7 @@ context "Hubbado" do
             result = seq.persist.(Hubbado::Sequence::Ctx.new)
 
             assert result.failure?
-            assert result.error[:code] == :persist_failed
+            assert result.code == :persist_failed
           end
 
           test "persisted? records calls" do

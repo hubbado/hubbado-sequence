@@ -4,28 +4,52 @@ module Hubbado
       FRAMEWORK_I18N_SCOPE = "sequence.errors".freeze
 
       attr_reader :ctx
-      attr_reader :error
+      attr_reader :code
+      attr_reader :data
+      attr_reader :step
       attr_reader :successful_steps
       attr_reader :i18n_scope
+      attr_reader :i18n_key
+      attr_reader :i18n_args
 
       def self.success(ctx, successful_steps: [], i18n_scope: nil)
-        new(:success, ctx, error: nil, successful_steps: successful_steps, i18n_scope: i18n_scope)
+        new(
+          :success,
+          ctx: ctx,
+          successful_steps: successful_steps,
+          i18n_scope: i18n_scope
+        )
       end
 
-      def self.failure(ctx, error:, successful_steps: [], i18n_scope: nil)
-        unless error.is_a?(Hash) && error[:code]
-          raise ArgumentError, "Result.failure requires error: { code: ... }"
-        end
+      def self.failure(ctx, code:, data: nil, step: nil,
+        i18n_scope: nil, i18n_key: nil, i18n_args: nil, successful_steps: [])
+        raise ArgumentError, "Result.failure requires code:" unless code
 
-        new(:failure, ctx, error: error, successful_steps: successful_steps, i18n_scope: i18n_scope)
+        new(
+          :failure,
+          ctx: ctx,
+          code: code,
+          data: data,
+          step: step,
+          successful_steps: successful_steps,
+          i18n_scope: i18n_scope,
+          i18n_key: i18n_key,
+          i18n_args: i18n_args
+        )
       end
 
-      def initialize(status, ctx, error:, successful_steps:, i18n_scope:)
+      def initialize(status, ctx:, successful_steps:, i18n_scope:,
+        code: nil, data: nil, step: nil,
+        i18n_key: nil, i18n_args: nil)
         @status = status
         @ctx = ctx
-        @error = error
+        @code = code
+        @data = data
+        @step = step
         @successful_steps = successful_steps
         @i18n_scope = i18n_scope
+        @i18n_key = i18n_key
+        @i18n_args = i18n_args
       end
 
       def success?
@@ -37,35 +61,50 @@ module Hubbado
       end
 
       def with_successful_steps(successful_steps)
-        self.class.new(@status, @ctx, error: @error, successful_steps: successful_steps, i18n_scope: @i18n_scope)
+        copy(successful_steps: successful_steps)
       end
 
       def with_i18n_scope(scope)
         return self unless @i18n_scope.nil?
 
-        self.class.new(@status, @ctx, error: @error, successful_steps: @successful_steps, i18n_scope: scope)
+        copy(i18n_scope: scope)
+      end
+
+      def with_step(step)
+        copy(step: step)
       end
 
       def message
         return nil if success?
 
-        translation = translate_with_chain
-        return translation if translation
-
-        @error[:message] || humanize_code
+        translate_with_chain || humanize_code
       end
 
       private
 
+      def copy(**overrides)
+        self.class.new(
+          @status,
+          ctx: @ctx,
+          code: @code,
+          data: @data,
+          step: @step,
+          successful_steps: @successful_steps,
+          i18n_scope: @i18n_scope,
+          i18n_key: @i18n_key,
+          i18n_args: @i18n_args,
+          **overrides
+        )
+      end
+
       def translate_with_chain
         scopes = []
-        scopes << @error[:i18n_scope] if @error[:i18n_scope]
         scopes << @i18n_scope if @i18n_scope
         scopes << FRAMEWORK_I18N_SCOPE
         scopes.uniq!
 
-        key = @error[:i18n_key] || @error[:code]
-        args = @error[:i18n_args] || {}
+        key = @i18n_key || @code
+        args = @i18n_args || {}
 
         scopes.each do |scope|
           translated = ::I18n.t("#{scope}.#{key}", default: nil, **args)
@@ -76,7 +115,7 @@ module Hubbado
       end
 
       def humanize_code
-        @error[:code].to_s.tr("_", " ").capitalize
+        @code.to_s.tr("_", " ").capitalize
       end
     end
   end

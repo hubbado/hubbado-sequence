@@ -34,7 +34,7 @@ module Hubbado
           end
 
           record def call(ctx)
-            return ::Hubbado::Sequence::Result.failure(ctx, error: @configured_error) if @configured_error
+            return ::Hubbado::Sequence::Result.failure(ctx, **@configured_error) if @configured_error
 
             if @configured_writes
               @configured_writes.each { |k, v| ctx[k] = v }
@@ -83,7 +83,8 @@ module Hubbado
       end
 
       def failure(ctx, **error_attrs)
-        Result.failure(ctx, error: error_attrs, i18n_scope: i18n_scope)
+        error_attrs[:i18n_scope] ||= i18n_scope
+        Result.failure(ctx, **error_attrs)
       end
 
       # Builds a Pipeline that auto-dispatches blockless `step(:foo)` calls to

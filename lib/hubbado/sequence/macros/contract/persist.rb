@@ -16,7 +16,7 @@ module Hubbado
             if contract.save
               Result.success(ctx)
             else
-              Result.failure(ctx, error: { code: :persist_failed })
+              Result.failure(ctx, code: :persist_failed)
             end
           end
 
@@ -34,7 +34,7 @@ module Hubbado
             end
 
             record def call(ctx)
-              return Result.failure(ctx, error: @configured_error) if @configured_error
+              return Result.failure(ctx, **@configured_error) if @configured_error
 
               Result.success(ctx)
             end

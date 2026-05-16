@@ -27,7 +27,7 @@ module Hubbado
             end
 
             record def call(ctx, from:)
-              return Result.failure(ctx, error: @configured_error) if @configured_error
+              return Result.failure(ctx, **@configured_error) if @configured_error
 
               Result.success(ctx)
             end

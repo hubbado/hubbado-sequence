@@ -157,7 +157,7 @@ context "Hubbado" do
         end
 
         test "the inner step's failure code propagates outward" do
-          assert result.error[:code] == :forbidden
+          assert result.code == :forbidden
         end
 
         test "outer successful_steps stops at the nested step name (opaque)" do
@@ -167,7 +167,7 @@ context "Hubbado" do
         test "error[:step] reflects the outer step that ran the nested sequencer" do
           # Pipeline tags the failure with the OUTER step name (:present),
           # because that's the step that returned the failed Result.
-          assert result.error[:step] == :present
+          assert result.step == :present
         end
       end
 
@@ -180,7 +180,7 @@ context "Hubbado" do
           result = seq.(ctx)
 
           assert result.failure?
-          assert result.error[:code] == :forbidden
+          assert result.code == :forbidden
           refute seq.validate.validated?
           refute seq.persist.persisted?
         end

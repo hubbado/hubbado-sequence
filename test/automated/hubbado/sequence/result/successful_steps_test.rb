@@ -13,7 +13,7 @@ context "Hubbado" do
         test "is captured for failed results" do
           result = Hubbado::Sequence::Result.failure(
             {},
-            error: { code: :forbidden },
+            code: :forbidden,
             successful_steps: %i[find_user]
           )
 
@@ -30,13 +30,13 @@ context "Hubbado" do
           assert updated.ctx.equal?(result.ctx)
         end
 
-        test "with_successful_steps preserves the failure status and error on a failed result" do
-          result = Hubbado::Sequence::Result.failure({}, error: { code: :forbidden })
+        test "with_successful_steps preserves the failure status and code on a failed result" do
+          result = Hubbado::Sequence::Result.failure({}, code: :forbidden)
 
           updated = result.with_successful_steps(%i[find_user])
 
           assert updated.failure?
-          assert updated.error[:code] == :forbidden
+          assert updated.code == :forbidden
           assert updated.successful_steps == %i[find_user]
         end
       end

@@ -100,7 +100,7 @@ context "Hubbado" do
             result = seq.build_contract.(Hubbado::Sequence::Ctx.new, contract_class, :user)
 
             assert result.failure?
-            assert result.error[:code] == :something_wrong
+            assert result.code == :something_wrong
           end
 
           test "built? records calls" do

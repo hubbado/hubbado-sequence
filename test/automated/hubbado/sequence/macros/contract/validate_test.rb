@@ -32,7 +32,7 @@ context "Hubbado" do
             result = validate.(ctx, from: %i[params user])
 
             assert result.failure?
-            assert result.error[:code] == :validation_failed
+            assert result.code == :validation_failed
           end
 
           test "the contract is still validated (errors populated)" do
@@ -97,7 +97,7 @@ context "Hubbado" do
             result = validate.(ctx)
 
             assert result.failure?
-            assert result.error[:code] == :validation_failed
+            assert result.code == :validation_failed
           end
         end
 
@@ -133,7 +133,7 @@ context "Hubbado" do
             result = seq.validate.(Hubbado::Sequence::Ctx.new, from: :params)
 
             assert result.failure?
-            assert result.error[:code] == :validation_failed
+            assert result.code == :validation_failed
           end
 
           test "validated? records the from: argument" do

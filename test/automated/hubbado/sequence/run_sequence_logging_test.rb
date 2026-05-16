@@ -60,7 +60,7 @@ context "Hubbado" do
           test "logs the failed step and code" do
             result = Hubbado::Sequence::Result.failure(
               Hubbado::Sequence::Ctx.new,
-              error: { code: :forbidden, step: :check_policy },
+              code: :forbidden, step: :check_policy,
               successful_steps: %i[find_user build_contract]
             )
             seq_class = sequencer_with_canned.(result)
@@ -76,7 +76,7 @@ context "Hubbado" do
           test "logs at error level when no handler runs (safety net)" do
             result = Hubbado::Sequence::Result.failure(
               Hubbado::Sequence::Ctx.new,
-              error: { code: :forbidden, step: :check_policy },
+              code: :forbidden, step: :check_policy,
               successful_steps: %i[find_user]
             )
             seq_class = sequencer_with_canned.(result)
@@ -93,7 +93,7 @@ context "Hubbado" do
           test "logs the failed step" do
             result = Hubbado::Sequence::Result.failure(
               Hubbado::Sequence::Ctx.new,
-              error: { code: :not_found, step: :find_user },
+              code: :not_found, step: :find_user,
               successful_steps: []
             )
             seq_class = sequencer_with_canned.(result)
@@ -110,7 +110,7 @@ context "Hubbado" do
           test "logs the failed step" do
             result = Hubbado::Sequence::Result.failure(
               Hubbado::Sequence::Ctx.new,
-              error: { code: :validation_failed, step: :validate },
+              code: :validation_failed, step: :validate,
               successful_steps: %i[find_user build_contract check_policy]
             )
             seq_class = sequencer_with_canned.(result)
@@ -127,7 +127,7 @@ context "Hubbado" do
           test "logs the code that fell through" do
             result = Hubbado::Sequence::Result.failure(
               Hubbado::Sequence::Ctx.new,
-              error: { code: :persist_failed, step: :persist },
+              code: :persist_failed, step: :persist,
               successful_steps: %i[find_user build_contract check_policy validate]
             )
             seq_class = sequencer_with_canned.(result)

@@ -13,10 +13,11 @@ context "Hubbado" do
           assert result.ctx == ctx
         end
 
-        test "has no error" do
+        test "has no failure payload" do
           result = Hubbado::Sequence::Result.success({})
 
-          assert result.error.nil?
+          assert result.code.nil?
+          assert result.data.nil?
         end
 
         test "has empty successful_steps by default" do
@@ -29,23 +30,27 @@ context "Hubbado" do
       context ".failure" do
         test "wraps the given ctx as a failed result" do
           ctx = { user: :a_user }
-          result = Hubbado::Sequence::Result.failure(ctx, error: { code: :forbidden })
+          result = Hubbado::Sequence::Result.failure(ctx, code: :forbidden)
 
           refute result.success?
           assert result.failure?
           assert result.ctx == ctx
         end
 
-        test "captures the error payload" do
-          result = Hubbado::Sequence::Result.failure({}, error: { code: :forbidden, message: "nope" })
+        test "captures the failure payload" do
+          result = Hubbado::Sequence::Result.failure(
+            {},
+            code: :forbidden,
+            data: { reason: :not_owner }
+          )
 
-          assert result.error[:code] == :forbidden
-          assert result.error[:message] == "nope"
+          assert result.code == :forbidden
+          assert result.data == { reason: :not_owner }
         end
 
         test "raises when no code is given" do
           assert_raises ArgumentError do
-            Hubbado::Sequence::Result.failure({}, error: {})
+            Hubbado::Sequence::Result.failure({})
           end
         end
       end

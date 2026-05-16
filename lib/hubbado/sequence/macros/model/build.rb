@@ -40,7 +40,7 @@ module Hubbado
                   "Macros::Model::Build substitute: #{model} does not respond to :new"
               end
 
-              return Result.failure(ctx, error: @configured_error) if @configured_error
+              return Result.failure(ctx, **@configured_error) if @configured_error
 
               ctx[as] = @return_value if @configured_success
               Result.success(ctx)

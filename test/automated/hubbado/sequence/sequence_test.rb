@@ -55,11 +55,11 @@ context "Hubbado" do
           result = instance.failure(ctx, code: :something_went_wrong)
 
           assert result.failure?
-          assert result.error[:code] == :something_went_wrong
+          assert result.code == :something_went_wrong
           assert result.i18n_scope == "seqs.example_seq"
         end
 
-        test "passes through extra error attributes" do
+        test "passes through extra failure attributes" do
           instance = sequencer_class.new
           result = instance.failure(
             Hubbado::Sequence::Ctx.new,
@@ -68,9 +68,20 @@ context "Hubbado" do
             data: { reason: "shipped" }
           )
 
-          assert result.error[:code] == :not_shippable
-          assert result.error[:i18n_args] == { id: 1 }
-          assert result.error[:data] == { reason: "shipped" }
+          assert result.code == :not_shippable
+          assert result.i18n_args == { id: 1 }
+          assert result.data == { reason: "shipped" }
+        end
+
+        test "caller-supplied i18n_scope wins over the sequencer's auto-derived scope" do
+          instance = sequencer_class.new
+          result = instance.failure(
+            Hubbado::Sequence::Ctx.new,
+            code: :not_shippable,
+            i18n_scope: "seqs.alternative"
+          )
+
+          assert result.i18n_scope == "seqs.alternative"
         end
       end
 

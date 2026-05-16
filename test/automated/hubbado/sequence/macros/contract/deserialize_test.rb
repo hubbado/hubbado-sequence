@@ -79,7 +79,7 @@ context "Hubbado" do
             result = seq.deserialize_to_contract.(Hubbado::Sequence::Ctx.new, from: :params)
 
             assert result.failure?
-            assert result.error[:code] == :something_wrong
+            assert result.code == :something_wrong
           end
 
           test "deserialized? records the from: argument" do
