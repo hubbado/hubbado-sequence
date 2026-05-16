@@ -62,7 +62,7 @@ context "Hubbado" do
       end
 
       context "policy failed (:forbidden)" do
-        result = Hubbado::Sequence::Result.failure(ctx.(), error: { code: :forbidden })
+        result = Hubbado::Sequence::Result.failure(ctx.(), code: :forbidden)
         seq_class = sequencer_with_canned.(result)
 
         test "fires only the policy_failed block" do
@@ -96,7 +96,7 @@ context "Hubbado" do
       end
 
       context "not found" do
-        result = Hubbado::Sequence::Result.failure(ctx.(), error: { code: :not_found })
+        result = Hubbado::Sequence::Result.failure(ctx.(), code: :not_found)
         seq_class = sequencer_with_canned.(result)
 
         test "fires only the not_found block" do
@@ -130,7 +130,7 @@ context "Hubbado" do
       end
 
       context "validation failed" do
-        result = Hubbado::Sequence::Result.failure(ctx.(), error: { code: :validation_failed })
+        result = Hubbado::Sequence::Result.failure(ctx.(), code: :validation_failed)
         seq_class = sequencer_with_canned.(result)
 
         test "fires only the validation_failed block" do
@@ -163,7 +163,7 @@ context "Hubbado" do
       end
 
       context "unknown error code" do
-        result = Hubbado::Sequence::Result.failure(ctx.(), error: { code: :something_strange })
+        result = Hubbado::Sequence::Result.failure(ctx.(), code: :something_strange)
         seq_class = sequencer_with_canned.(result)
 
         test "falls through to otherwise" do

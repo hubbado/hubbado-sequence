@@ -84,15 +84,12 @@ module Hubbado
 
       def record(name, return_value)
         if return_value.is_a?(Result) && return_value.failure?
-          @failed_result = tag_failure(return_value, name)
+          @failed_result = return_value
+            .with_step(name)
+            .with_successful_steps(@successful_steps.dup)
         else
           @successful_steps << name
         end
-      end
-
-      def tag_failure(result, step_name)
-        tagged_error = result.error.merge(step: step_name)
-        Result.failure(result.ctx, error: tagged_error, successful_steps: @successful_steps.dup, i18n_scope: result.i18n_scope)
       end
     end
   end

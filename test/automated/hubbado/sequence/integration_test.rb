@@ -92,14 +92,14 @@ context "Hubbado" do
 
         test "stops at the failing substitute and tags the step" do
           seq = seq_class.new
-          seq.check_policy.fail_with(code: :forbidden, reason: :not_owner)
+          seq.check_policy.fail_with(code: :forbidden, data: { reason: :not_owner })
 
           ctx = Hubbado::Sequence::Ctx.build(params: { id: 1 }, current_user: :alice)
           result = seq.(ctx)
 
           assert result.failure?
-          assert result.error[:code] == :forbidden
-          assert result.error[:step] == :check_policy
+          assert result.code == :forbidden
+          assert result.step == :check_policy
           assert result.successful_steps == %i[find build_contract]
           refute seq.validate.validated?
           refute seq.persist.persisted?

@@ -59,15 +59,15 @@ context "Hubbado" do
             end
 
             define_method(:fine)       { |ctx| Hubbado::Sequence::Result.success(ctx) }
-            define_method(:bad)        { |ctx| Hubbado::Sequence::Result.failure(ctx, error: { code: :bad }) }
+            define_method(:bad)        { |ctx| Hubbado::Sequence::Result.failure(ctx, code: :bad) }
             define_method(:never_runs) { |ctx| raise "should not run" }
           end
 
           result = failing.()
 
           assert result.failure?
-          assert result.error[:code] == :bad
-          assert result.error[:step] == :bad
+          assert result.code == :bad
+          assert result.step == :bad
           assert result.successful_steps == %i[fine]
         end
       end

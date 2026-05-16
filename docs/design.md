@@ -260,7 +260,7 @@ Result *and* a populated contract.
 
 Why both? Because the controller needs both. `result.success?` tells it whether
 to redirect or re-render. `ctx[:contract].errors` tells it what to render.
-`result.error[:code]` tells it the HTTP status.
+`result.code` tells it the HTTP status.
 
 We initially considered a third location, `ctx[:errors]`, but dropped it.
 The contract owns user-facing errors; the Result owns operational errors.
@@ -545,6 +545,34 @@ behaviour:
   `otherwise` block accidentally rendering a form when the policy failed,
   which would be a security hole.
 
+Once an outcome block executes, the dispatcher marks the failure handled
+and the safety net stands down. That works for outcome blocks that fully
+own the response, but not for blocks that handle some cases inline and
+want the framework's default escalation for the rest. The Dispatch object
+therefore exposes the standard exceptions as public methods —
+`raise_policy_failed`, `raise_not_found`, `raise_failed` — that produce
+the same shape `enforce_safety_nets!` would. `enforce_safety_nets!` itself
+delegates to them, so the safety-net path and the explicit-call path are
+guaranteed to stay aligned.
+
+```ruby
+result.policy_failed do |ctx|
+  if result.data[:policy_result].reason == :not_open
+    redirect_to public_path(ctx[:job])
+  else
+    result.raise_policy_failed
+  end
+end
+```
+
+We considered a parameterised "reason dispatch" helper
+(`result.on_policy_reason(:not_open) { ... }`) but rejected it: it
+encodes a one-off pattern into the framework when plain Ruby `if`/`else`
+plus a `raise_policy_failed` fallback already reads clearly. The raise
+helpers are also useful outside policy denial (the same shape applies to
+`not_found` and generic failures), which a `on_policy_reason` helper
+wouldn't have addressed.
+
 Sequencers are also callable bare (`Seqs::UpdateUser.(...)`) for use in
 jobs, tests, and other sequencers. `run_sequence` is the standard for
 controllers, not the only way to invoke.
@@ -553,9 +581,9 @@ controllers, not the only way to invoke.
 
 A sequencer's `Result` carries **successful_steps** — the list of step
 names that completed successfully, in order. On failure, the failing step
-is *not* in `successful_steps`; it lives on `error[:step]` instead. The two
+is *not* in `successful_steps`; it lives on `step` instead. The two
 together tell the whole story: `successful_steps` is "what got done,"
-`error[:step]` is "where it stopped."
+`step` is "where it stopped."
 
 We considered recording outcomes alongside step names (`[[:find_user, :success],
 ...]`) but rejected it as redundant: `successful_steps` plus error
@@ -579,7 +607,7 @@ outermost dispatcher is the right boundary for logging.
 
 Nested sequencer steps are opaque to the parent: the parent's
 `successful_steps` records `:present` as a single step, not the sub-steps
-inside Present. If Present fails, `error[:step]` carries the inner step
+inside Present. If Present fails, `step` carries the inner step
 name (set by Present's own Pipeline before the Result bubbles out), and
 the parent's `successful_steps` shows `[:present]` was where things
 stopped. This is enough to debug most failures from a single log line; if
@@ -752,6 +780,77 @@ been settled:
   matching the macro substitute pattern. Tests can short-circuit a nested
   sequencer with `seq.present.fail_with(code: :forbidden)` without
   reaching into its inner pieces.
+
+- **`Result.failure` takes flat kwargs; the `error:` hash wrapper is
+  gone, and `Dispatch` delegates reads to its wrapped `Result`.**
+  Originally a failed `Result` carried its failure payload inside an
+  `error:` hash — `Result.failure(ctx, error: { code: :forbidden, data:
+  { policy_result: ... } })` — and outcome blocks read it through two
+  layers of indirection: `result.result.error.dig(:data, :policy_result)`
+  from inside `run_sequence` (where `result` is a `Dispatch` and
+  `result.result` is the wrapped `Result`). Four hops to reach a value.
+
+  The `error:` hash was a wrapping layer with no second consumer. Its
+  keys (`code`, `data`, `step`, `message`, `i18n_scope`, `i18n_key`,
+  `i18n_args`) are now first-class kwargs on `Result.failure` and
+  first-class attrs on `Result`. The method signature documents the
+  failure shape; callers read `result.code` / `result.data` directly.
+
+  `Dispatch` separately gained read-through delegations
+  (`code`, `data`, `step`, `message`, `successful_steps`, `ctx`) so
+  outcome-block callers never have to hop through `result.result`. The
+  wrapping is still there structurally — `Dispatch` owns a `Result`
+  internally for routing — but the access path collapses at the call
+  site:
+
+  ```ruby
+  # before
+  result.result.error.dig(:data, :policy_result).reason
+
+  # after
+  result.data[:policy_result].reason
+  ```
+
+  We considered keeping the `error:` hash and only adding the
+  delegations (option B in the discussion). Same call-site result, less
+  internal churn. Rejected because the `error:` hash earned nothing:
+  nothing else accepts or produces it, and "wrap the failure payload"
+  isn't a useful concept once `Result` has typed readers for the fields
+  that matter. We also considered a `result.data` accessor that read
+  through to `error[:data]` (option C) — same trade-off, plus it left
+  the `error:` wrapper in place as a vestigial layer. Flat kwargs win
+  on both counts.
+
+  One feature dropped in the flattening: the per-error `i18n_scope`
+  override (a scope set inside the error hash that beat the result-level
+  one) is gone. There's a single `i18n_scope` slot now, and the
+  `Sequencer#failure` helper applies the sequencer's auto-derived scope
+  only when the caller doesn't pass one — preserving the
+  "caller-explicit wins" semantics where it matters in practice. The
+  dual-scope chain was a design feature unused by any macro or
+  production caller.
+
+- **Public raise helpers on `Dispatch`** — originally the only escape
+  hatch from inside an outcome block was the safety net, which stood
+  down as soon as a handler block ran. That made the partial-handling
+  pattern (handle some failure reasons inline, escalate the rest)
+  awkward: callers had to reconstruct `Errors::Unauthorized` themselves
+  with the same message and result the safety net would have used,
+  duplicating framework internals at the call site.
+
+  Adding `raise_policy_failed`, `raise_not_found`, and `raise_failed` as
+  public methods on `Dispatch` — and routing `enforce_safety_nets!`
+  through the same helpers — keeps the two paths aligned. A caller that
+  handles one policy reason and wants the framework's default for the
+  rest writes `result.raise_policy_failed` instead of reconstructing the
+  exception. The behaviour is identical to letting the safety net fire,
+  but the caller controls when it happens.
+
+  The shape mirrors `Hubbado::Trailblazer::RunOperation`'s
+  `raise_policy_failed`/`raise_operation_failed`. The port wasn't an
+  oversight in the original Sequencer cut — the safety-net design
+  reads cleanly in isolation — but it does miss the partial-handling
+  case Trailblazer's helpers explicitly address.
 
 - **Path traversal semantics** — settled as hash-only with an explicit
   `missing:` policy. `Hubbado::Sequence::Path.resolve` accepts a Symbol

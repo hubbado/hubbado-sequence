@@ -25,13 +25,23 @@ module Hubbado
       class Dispatch
         include Hubbado::Log::Dependency
 
-        attr_reader :returned, :result, :sequencer_class
+        attr_reader :returned, :sequencer_class
 
         def initialize(sequencer_class, result)
           @sequencer_class = sequencer_class
           @result = result
           @handled = false
         end
+
+        # Read-throughs to the wrapped Result. Outcome blocks read these on
+        # the Dispatch object (the block argument) without hopping through
+        # an inner Result reference.
+        def code             = @result.code
+        def data             = @result.data
+        def step             = @result.step
+        def message          = @result.message
+        def successful_steps = @result.successful_steps
+        def ctx              = @result.ctx
 
         def success
           return unless @result.success?
@@ -69,12 +79,27 @@ module Hubbado
           logger.info("Sequencer #{@sequencer_class.name} failed at #{step_label} (#{code}): #{steps_summary}")
         end
 
-        def code
-          @result.error&.[](:code)
-        end
-
         def handled?
           @result.success? || @handled
+        end
+
+        # Raise the standard policy-denial exception. Available inside an
+        # outcome block (e.g. for callers that handle some policy reasons
+        # inline and want the framework's standard escalation for the rest)
+        # and used internally by enforce_safety_nets! when no handler ran.
+        def raise_policy_failed
+          raise Errors::Unauthorized.new(
+            "#{@sequencer_class.name} denied: #{@result.message}",
+            @result
+          )
+        end
+
+        def raise_not_found
+          raise Errors::NotFound, "#{@sequencer_class.name} reported not_found"
+        end
+
+        def raise_failed
+          raise Errors::Failed, "#{@sequencer_class.name} failed (#{code}): #{@result.message}"
         end
 
         def enforce_safety_nets!
@@ -83,15 +108,9 @@ module Hubbado
           log_unhandled
 
           case code
-          when :forbidden
-            raise Errors::Unauthorized.new(
-              "#{@sequencer_class.name} denied: #{@result.message}",
-              @result
-            )
-          when :not_found
-            raise Errors::NotFound, "#{@sequencer_class.name} reported not_found"
-          else
-            raise Errors::Failed, "#{@sequencer_class.name} failed (#{code}): #{@result.message}"
+          when :forbidden then raise_policy_failed
+          when :not_found then raise_not_found
+          else raise_failed
           end
         end
 
@@ -107,11 +126,10 @@ module Hubbado
         end
 
         def steps_summary
-          @result.successful_steps.empty? ? "(no steps)" : @result.successful_steps.map(&:to_s).join(" → ")
+          successful_steps.empty? ? "(no steps)" : successful_steps.map(&:to_s).join(" → ")
         end
 
         def step_label
-          step = @result.error && @result.error[:step]
           step ? step.inspect : "(unknown step)"
         end
       end
@@ -162,7 +180,8 @@ module Hubbado
         def configure_failure(code, error_attrs)
           @configured_outcome = {
             kind: :failure,
-            error: { code: code, **error_attrs }
+            code: code,
+            error_attrs: error_attrs
           }
           self
         end
@@ -175,7 +194,7 @@ module Hubbado
             outcome[:ctx_writes].each { |key, value| ctx[key] = value }
             Hubbado::Sequence::Result.success(ctx)
           else
-            Hubbado::Sequence::Result.failure(ctx, error: outcome[:error])
+            Hubbado::Sequence::Result.failure(ctx, code: outcome[:code], **outcome[:error_attrs])
           end
         end
       end

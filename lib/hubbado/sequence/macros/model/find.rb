@@ -18,7 +18,7 @@ module Hubbado
               ctx[as] = record
               Result.success(ctx)
             else
-              Result.failure(ctx, error: { code: :not_found })
+              Result.failure(ctx, code: :not_found)
             end
           end
 
@@ -42,7 +42,7 @@ module Hubbado
                   "Macros::Model::Find substitute: #{model} does not respond to :find_by"
               end
 
-              return Result.failure(ctx, error: @configured_error) if @configured_error
+              return Result.failure(ctx, **@configured_error) if @configured_error
 
               ctx[as] = @return_value if @configured_success
               Result.success(ctx)

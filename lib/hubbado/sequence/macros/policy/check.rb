@@ -22,10 +22,8 @@ module Hubbado
             else
               Result.failure(
                 ctx,
-                error: {
-                  code: :forbidden,
-                  data: { policy: policy_instance, policy_result: policy_result }
-                }
+                code: :forbidden,
+                data: { policy: policy_instance, policy_result: policy_result }
               )
             end
           end
@@ -49,7 +47,7 @@ module Hubbado
                   "Macros::Policy::Check substitute: #{policy} does not declare action :#{action}"
               end
 
-              return Result.failure(ctx, error: @configured_error) if @configured_error
+              return Result.failure(ctx, **@configured_error) if @configured_error
 
               Result.success(ctx)
             end

@@ -4,6 +4,97 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Changed (breaking)
+
+- **`Result.failure` takes flat kwargs; the `error:` hash wrapper is
+  gone.** The previous shape — `Result.failure(ctx, error: { code:,
+  data:, ... })` — wrapped its keys in an `error:` hash for no reason
+  beyond convention. The fields are now first-class kwargs on
+  `Result.failure` and first-class attrs on `Result`:
+
+  ```ruby
+  # before
+  Result.failure(ctx, error: { code: :forbidden, data: { policy_result: pr } })
+  result.error[:code]                # => :forbidden
+  result.error[:data][:policy_result]
+
+  # after
+  Result.failure(ctx, code: :forbidden, data: { policy_result: pr })
+  result.code                        # => :forbidden
+  result.data[:policy_result]
+  ```
+
+  `Result` exposes `code`, `data`, `step`, `message_override`,
+  `i18n_scope`, `i18n_key`, `i18n_args` as readers. `Result#error`
+  is removed.
+
+  Migration: in callers, replace `Result.failure(ctx, error: { code:
+  :X })` with `Result.failure(ctx, code: :X)`. Replace `result.error[:X]`
+  reads with `result.X`. The `Sequencer#failure(ctx, **error_attrs)`
+  helper is unchanged at the call site (it always took flat kwargs).
+  Macro substitutes' `fail_with(**error_attrs)` is unchanged at the call
+  site; arbitrary extra attrs that used to live in the error hash should
+  move into `data:` (`fail_with(code: :forbidden, data: { reason:
+  :not_owner })`).
+
+- **The per-error `i18n_scope` override path is removed.** Previously a
+  caller could put `i18n_scope:` inside the `error:` hash *and* pass a
+  separate `i18n_scope:` to the surrounding wrapper, with the per-error
+  one winning. With flat kwargs there is one `i18n_scope` slot. The
+  `Sequencer#failure` helper still applies the sequencer's auto-derived
+  scope when the caller doesn't pass one (`error_attrs[:i18n_scope] ||=
+  i18n_scope`), preserving the "caller wins" semantics where it matters
+  in practice. `Result#with_i18n_scope` (used to apply a scope to an
+  already-built Result) is unchanged.
+
+- **`Runner::Dispatch#result` is removed.** Master exposed the wrapped
+  Result via `attr_reader :result`, which was the source of the
+  `result.result.error.dig(...)` four-hop pattern. With the new
+  read-through delegations (`code`, `data`, `step`, `message`,
+  `successful_steps`, `ctx`) there's no reason for outcome blocks to
+  reach into the inner Result. Any caller still doing
+  `result.result.X` from inside a `run_sequence` block will now raise
+  `NoMethodError`; replace with the matching delegation on the
+  dispatch object itself.
+
+- **The `message:` kwarg on `Result.failure` is removed.** It set a
+  literal-string fallback returned by `Result#message` when no
+  translation matched. No in-tree caller used it (the
+  i18n-translation chain plus `humanize_code` fallback covered every
+  real case), and the path was test-only. If a caller needs a custom
+  message they can supply `i18n_key:` and a matching translation, or
+  pass a humanizable `code:` symbol.
+
+### Added
+
+- **`Runner::Dispatch` delegates reads to its wrapped `Result`.** Outcome
+  blocks can call `result.code`, `result.data`, `result.message`,
+  `result.step`, `result.successful_steps`, `result.ctx` on the
+  `Dispatch` object (the block argument) without hopping through an
+  inner `.result.` reference. The previous `result.result.error.dig(...)`
+  pattern collapses to one read.
+
+  ```ruby
+  result.policy_failed do |ctx|
+    if result.data[:policy_result].reason == :not_open
+      redirect_to public_path(ctx[:job])
+    else
+      result.raise_policy_failed
+    end
+  end
+  ```
+
+- **Public raise helpers on `Runner::Dispatch`:** `raise_policy_failed`,
+  `raise_not_found`, and `raise_failed`. They produce the same exceptions
+  the safety net would raise, but can be called explicitly from inside an
+  outcome block — useful when a caller handles some failure cases inline
+  and wants the framework's standard escalation for the rest.
+  `enforce_safety_nets!` now delegates to the same helpers, so the
+  exception shapes stay aligned whether the caller invokes them directly
+  or the runner does it automatically.
+
 ## [0.5.0] - Result vocabulary renamed: success/failure and successful_steps
 
 ### Changed (breaking)

@@ -5,7 +5,7 @@ context "Hubbado" do
     context "Macros" do
       context "Policy::Check" do
         context "permitted action" do
-          test "returns ok" do
+          test "returns success" do
             policy_class = Hubbado::Sequence::Controls::Policy.example_class(decision: :permit, action: :update)
 
             check_policy = Hubbado::Sequence::Macros::Policy::Check.new
@@ -27,10 +27,10 @@ context "Hubbado" do
             result = check_policy.(ctx, policy_class, :user, :update)
 
             assert result.failure?
-            assert result.error[:code] == :forbidden
+            assert result.code == :forbidden
           end
 
-          test "carries the policy and its result on error[:data]" do
+          test "carries the policy and its result on data" do
             policy_class = Hubbado::Sequence::Controls::Policy.example_class(decision: :deny, action: :update)
 
             check_policy = Hubbado::Sequence::Macros::Policy::Check.new
@@ -38,8 +38,8 @@ context "Hubbado" do
             ctx = Hubbado::Sequence::Ctx.build(current_user: :alice, user: :a_record)
             result = check_policy.(ctx, policy_class, :user, :update)
 
-            assert result.error[:data][:policy].is_a?(policy_class)
-            assert result.error[:data][:policy_result].denied?
+            assert result.data[:policy].is_a?(policy_class)
+            assert result.data[:policy_result].denied?
           end
         end
 
@@ -72,13 +72,13 @@ context "Hubbado" do
 
           test "fail_with(**error) returns a failed result" do
             seq = seq_class.new
-            seq.check_policy.fail_with(code: :forbidden, reason: :not_owner)
+            seq.check_policy.fail_with(code: :forbidden, data: { reason: :not_owner })
 
             result = seq.check_policy.(Hubbado::Sequence::Ctx.new, policy_class, :user, :update)
 
             assert result.failure?
-            assert result.error[:code] == :forbidden
-            assert result.error[:reason] == :not_owner
+            assert result.code == :forbidden
+            assert result.data == { reason: :not_owner }
           end
 
           test "checked? records calls" do

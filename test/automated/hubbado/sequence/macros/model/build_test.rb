@@ -77,7 +77,7 @@ context "Hubbado" do
             result = seq.build_record.(Hubbado::Sequence::Ctx.new, model, as: :user)
 
             assert result.failure?
-            assert result.error[:code] == :invalid_state
+            assert result.code == :invalid_state
           end
 
           test "built? records calls and matches partial kwargs" do

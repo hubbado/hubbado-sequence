@@ -55,7 +55,7 @@ context "Hubbado" do
       end
 
       context "policy failed (:forbidden)" do
-        result = Hubbado::Sequence::Result.failure(ctx.(), error: { code: :forbidden })
+        result = Hubbado::Sequence::Result.failure(ctx.(), code: :forbidden)
         seq_class = sequencer_with_canned.(result)
 
         test "fires only the policy_failed block" do
@@ -89,7 +89,7 @@ context "Hubbado" do
       end
 
       context "not found" do
-        result = Hubbado::Sequence::Result.failure(ctx.(), error: { code: :not_found })
+        result = Hubbado::Sequence::Result.failure(ctx.(), code: :not_found)
         seq_class = sequencer_with_canned.(result)
 
         test "fires only the not_found block" do
@@ -112,7 +112,7 @@ context "Hubbado" do
       end
 
       context "validation failed" do
-        result = Hubbado::Sequence::Result.failure(ctx.(), error: { code: :validation_failed })
+        result = Hubbado::Sequence::Result.failure(ctx.(), code: :validation_failed)
         seq_class = sequencer_with_canned.(result)
 
         test "fires only the validation_failed block" do
@@ -164,6 +164,77 @@ context "Hubbado" do
           assert captured.is_a?(Hubbado::Sequence::Ctx)
           assert captured[:params] == { id: 1 }
           assert captured[:current_user] == :alice
+        end
+      end
+
+      context "public raise helpers" do
+        test "raise_policy_failed raises Errors::Unauthorized from inside an outcome block" do
+          result = Hubbado::Sequence::Result.failure(ctx.(), code: :forbidden)
+          seq_class = sequencer_with_canned.(result)
+
+          assert_raises Hubbado::Sequence::Errors::Unauthorized do
+            Hubbado::Sequence::Runner.new.(seq_class) do |r|
+              r.policy_failed { |_| r.raise_policy_failed }
+            end
+          end
+        end
+
+        test "raise_not_found raises Errors::NotFound from inside an outcome block" do
+          result = Hubbado::Sequence::Result.failure(ctx.(), code: :not_found)
+          seq_class = sequencer_with_canned.(result)
+
+          assert_raises Hubbado::Sequence::Errors::NotFound do
+            Hubbado::Sequence::Runner.new.(seq_class) do |r|
+              r.not_found { |_| r.raise_not_found }
+            end
+          end
+        end
+
+        test "raise_failed raises Errors::Failed from inside an outcome block" do
+          result = Hubbado::Sequence::Result.failure(ctx.(), code: :persist_failed)
+          seq_class = sequencer_with_canned.(result)
+
+          assert_raises Hubbado::Sequence::Errors::Failed do
+            Hubbado::Sequence::Runner.new.(seq_class) do |r|
+              r.otherwise { |_| r.raise_failed }
+            end
+          end
+        end
+      end
+
+      context "dispatch delegates reads to the wrapped Result" do
+        test "code, data, step, successful_steps come through unchanged" do
+          inner_ctx = Hubbado::Sequence::Ctx.build(user: :a_user)
+          result = Hubbado::Sequence::Result.failure(
+            inner_ctx,
+            code: :forbidden,
+            data: { reason: :not_open },
+            successful_steps: %i[find build]
+          ).with_step(:check_policy)
+          seq_class = sequencer_with_canned.(result)
+
+          captured = nil
+          Hubbado::Sequence::Runner.new.(seq_class) do |r|
+            r.policy_failed { |_| captured = { code: r.code, data: r.data, step: r.step, steps: r.successful_steps, ctx: r.ctx } }
+          end
+
+          assert captured[:code]  == :forbidden
+          assert captured[:data]  == { reason: :not_open }
+          assert captured[:step]  == :check_policy
+          assert captured[:steps] == %i[find build]
+          assert captured[:ctx].equal?(inner_ctx)
+        end
+
+        test "message comes through unchanged (i18n-translated)" do
+          result = Hubbado::Sequence::Result.failure(ctx.(), code: :forbidden)
+          seq_class = sequencer_with_canned.(result)
+
+          captured = nil
+          Hubbado::Sequence::Runner.new.(seq_class) do |r|
+            r.policy_failed { |_| captured = r.message }
+          end
+
+          assert captured == I18n.t("sequence.errors.forbidden")
         end
       end
 

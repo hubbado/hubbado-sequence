@@ -292,14 +292,30 @@ p.invoke(:check_policy, Policies::User, :user, :update)
 ```
 
 The policy class must respond to `.build(current_user, record)`; the
-instance must respond to the action method and return an object with
-`permitted?`.
+instance must respond to the action method and return a
+`Hubbado::Policy::Result`-shaped object (`permitted?`, `denied?`,
+`reason`, `message`).
 
 | | |
 |---|---|
 | **Reads** | `ctx[:current_user]`, `ctx[record_key]` |
 | **Writes** | nothing |
-| **Fails** | `:forbidden` when `permitted?` is false; `error[:data]` carries `{ policy:, policy_result: }` |
+| **Fails** | `:forbidden` when `permitted?` is false; `result.data` carries `{ policy:, policy_result: }` |
+
+A controller can branch on the denial reason via `data`:
+
+```ruby
+result.policy_failed do |ctx|
+  if result.data[:policy_result].reason == :not_open
+    redirect_to public_path(ctx[:job])
+  else
+    result.raise_policy_failed
+  end
+end
+```
+
+See [Handling specific failure reasons inside an outcome block](#handling-specific-failure-reasons-inside-an-outcome-block)
+for when `raise_policy_failed` and its siblings come in handy.
 
 ## Transactions
 
@@ -454,9 +470,50 @@ end
 ```
 
 `failure(ctx, ...)` is a sequencer helper that builds a failed `Result`
-with the sequencer's auto-derived i18n scope already applied. It takes the
-same error attrs as the underlying error hash (`code:`, `i18n_key:`,
-`i18n_args:`, `data:`, `message:`).
+with the sequencer's auto-derived i18n scope already applied. It takes
+the same kwargs as `Result.failure` (`code:`, `data:`, `step:`,
+`i18n_scope:`, `i18n_key:`, `i18n_args:`).
+
+## Outcome blocks and safety nets
+
+`run_sequence` enforces that serious failures are addressed. Forgetting to
+handle them raises rather than silently swallowing:
+
+- An unhandled `:forbidden` raises `Hubbado::Sequence::Errors::Unauthorized`.
+- An unhandled `:not_found` raises `Hubbado::Sequence::Errors::NotFound`.
+- An unhandled non-policy / non-not-found failure (and an `otherwise` block
+  isn't given) raises `Hubbado::Sequence::Errors::Failed`.
+
+`otherwise` deliberately does *not* catch `:forbidden` or `:not_found` —
+that's what prevents a generic `otherwise` accidentally rendering a form
+when the policy denied access.
+
+### Handling specific failure reasons inside an outcome block
+
+The dispatch object exposes the standard escalation paths as public
+methods, so an outcome block can handle some cases inline and fall back to
+the framework's exception for the rest:
+
+```ruby
+result.policy_failed do |ctx|
+  if result.data[:policy_result].reason == :not_open
+    redirect_to public_path(ctx[:job])
+  else
+    result.raise_policy_failed
+  end
+end
+```
+
+The available helpers mirror the safety nets:
+
+- `result.raise_policy_failed` — raises `Errors::Unauthorized` with the
+  standard message.
+- `result.raise_not_found` — raises `Errors::NotFound`.
+- `result.raise_failed` — raises `Errors::Failed`.
+
+Use them when you genuinely want the framework's default escalation;
+prefer plain Ruby control flow (`return`, `if`/`else`) for ordinary
+branching.
 
 ## Testing
 
@@ -510,7 +567,7 @@ context "Seqs::UpdateUser::Present when the user is not found" do
   result = seq.(params: { id: 999 }, current_user: User.new)
 
   test "Fails with :not_found" do
-    assert(result.error[:code] == :not_found)
+    assert(result.code == :not_found)
   end
 
   test "Does not build the contract" do
@@ -521,6 +578,15 @@ context "Seqs::UpdateUser::Present when the user is not found" do
     refute(seq.check_policy.checked?)
   end
 end
+```
+
+The `Policy::Check` substitute's `fail_with(**error)` accepts the same
+attributes `Result.failure` does, so a test that needs an outcome block
+to branch on `result.data[:policy_result].reason` can configure the data
+payload directly:
+
+```ruby
+seq.check_policy.fail_with(code: :forbidden, data: { policy_result: DeniedResult.new(:not_open) })
 ```
 
 ### Substituting a nested sequencer
@@ -567,7 +633,7 @@ context "Seqs::UpdateUser when Present denies access" do
   end
 
   test "Fails with :forbidden" do
-    assert(result.error[:code] == :forbidden)
+    assert(result.code == :forbidden)
   end
 
   test "Does not validate" do
@@ -586,7 +652,7 @@ context "Seqs::UpdateUser when Present cannot find the record" do
   result = seq.(params: { id: 999, user: {} }, current_user: User.new)
 
   test "Fails with :not_found" do
-    assert(result.error[:code] == :not_found)
+    assert(result.code == :not_found)
   end
 
   test "Does not validate" do
@@ -610,12 +676,12 @@ to exercise Find / Build / Policy::Check directly — those live in
 
 Every `Result` carries **successful_steps** — the list of step names that
 completed successfully, in order. On failure, the failing step is *not* in
-`successful_steps`; it's tagged on `error[:step]` instead.
+`successful_steps`; it's tagged on `step` instead.
 
 ```ruby
 result.successful_steps  # => [:find, :build_contract, :check_policy, :validate, :persist]  # success
 result.successful_steps  # => [:find, :build_contract]                                       # failed at :check_policy
-result.error[:step]      # => :check_policy
+result.step              # => :check_policy
 ```
 
 When invoked via `run_sequence`, the dispatcher logs a single line per

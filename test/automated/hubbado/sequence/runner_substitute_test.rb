@@ -85,7 +85,7 @@ context "Hubbado" do
 
         test "passes additional error attributes through" do
           sub = build_substitute.()
-          sub.policy_failure(message: "blocked")
+          sub.policy_failure(data: { reason: :blocked })
 
           received_error = nil
           sub.(seq_class.("Seqs::A")) do |r|

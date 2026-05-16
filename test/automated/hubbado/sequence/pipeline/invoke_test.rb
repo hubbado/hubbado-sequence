@@ -66,11 +66,11 @@ context "Hubbado" do
 
         test "returns a failed Result with the dependency's failure code" do
           assert result.failure?
-          assert result.error[:code] == :not_found
+          assert result.code == :not_found
         end
 
         test "tags the failed step with the dependency name" do
-          assert result.error[:step] == :find
+          assert result.step == :find
         end
 
         test "successful_steps reflects what completed before the failure" do

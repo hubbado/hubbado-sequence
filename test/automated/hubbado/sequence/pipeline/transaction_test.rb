@@ -38,8 +38,8 @@ context "Hubbado" do
             define_method(:before)      { |ctx| ctx[:before] = true; Hubbado::Sequence::Result.success(ctx) }
             define_method(:inside)      { |ctx| ctx[:inside] = true; Hubbado::Sequence::Result.success(ctx) }
             define_method(:after)       { |ctx| ctx[:after]  = true; Hubbado::Sequence::Result.success(ctx) }
-            define_method(:fail_inside) { |ctx| Hubbado::Sequence::Result.failure(ctx, error: { code: :boom }) }
-            define_method(:fail_first)  { |ctx| Hubbado::Sequence::Result.failure(ctx, error: { code: :nope }) }
+            define_method(:fail_inside) { |ctx| Hubbado::Sequence::Result.failure(ctx, code: :boom) }
+            define_method(:fail_first)  { |ctx| Hubbado::Sequence::Result.failure(ctx, code: :nope) }
             define_method(:should_not_run) { |_ctx| raise "should not be called" }
           end.new
         }
@@ -68,8 +68,8 @@ context "Hubbado" do
               .step(:after)
 
             assert pipeline.result.failure?
-            assert pipeline.result.error[:code] == :boom
-            assert pipeline.result.error[:step] == :fail_inside
+            assert pipeline.result.code == :boom
+            assert pipeline.result.step == :fail_inside
           end
         end
 
@@ -105,7 +105,7 @@ context "Hubbado" do
                 end
 
               assert pipeline.result.failure?
-              assert pipeline.result.error[:code] == :boom
+              assert pipeline.result.code == :boom
             end
           end
 
