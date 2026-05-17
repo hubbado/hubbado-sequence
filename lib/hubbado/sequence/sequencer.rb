@@ -62,7 +62,7 @@ module Hubbado
             ctx = Ctx.build(ctx)
           end
 
-          build.call(ctx)
+          build.call(ctx).with_i18n_scope(i18n_scope)
         end
 
         # Default factory: a sequencer with no configurable dependencies needs
@@ -100,7 +100,7 @@ module Hubbado
 
         if block
           block.call(pipe)
-          pipe.result
+          pipe.result.with_i18n_scope(i18n_scope)
         else
           pipe
         end

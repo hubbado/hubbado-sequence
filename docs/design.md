@@ -996,3 +996,50 @@ been settled:
   inputs the operation acts on stay positional; ctx-key outputs (`as:`)
   and structural modifiers (`from:`, `id_key:`, `attributes:`) are
   kwargs. The convention is now consistent across the macro set.
+
+- **Sequencer auto-applies its `i18n_scope` to the returned Result.**
+  The "i18n" section above documents a translation fallback chain whose
+  second step is "Sequencer's auto-derived scope" — but no code applied
+  it. Only `Sequencer#failure` (the explicit helper) tagged the result
+  with the sequencer's scope, and only when the sequencer's own body
+  used that helper. Macros call `Result.failure` directly with no
+  scope, and a sequencer body that returns a macro's failure unchanged
+  produced an unscoped Result. `Result#message` then fell through to
+  the framework default (`sequence.errors.<code>`) instead of the
+  per-sequencer scoped translation. A pure-macro sequencer — one whose
+  whole body is `pipeline(ctx) { |p| p.invoke(:check_policy, ...); ... }`
+  with no hand-rolled `failure` calls — could never produce a message
+  translated under its own namespace.
+
+  `Sequencer#pipeline` (block form) and `Sequencer.()` now tag the
+  returned Result with the sequencer's `i18n_scope` via
+  `Result#with_i18n_scope`. The "innermost scope wins" semantics
+  (`with_i18n_scope` is a no-op when the scope is already set) preserve
+  nested-sequencer behaviour: an inner sequencer tags its own failure
+  first, and the outer wrapper's `with_i18n_scope` then does nothing.
+
+  We tagged at the boundary — `pipeline.result` and `Sequencer.()` —
+  rather than threading the dispatcher's scope into every macro call.
+  Two reasons. Macros are dependencies: they shouldn't know about the
+  sequencer they're invoked inside, and coupling them to the dispatcher
+  for the sake of i18n metadata would invert the dependency direction.
+  And `Result` already has `with_i18n_scope` with the right
+  no-op-when-set semantics — applying it at the boundary keeps
+  "innermost scope wins" mechanically true without changes anywhere
+  else.
+
+  We considered making `Sequencer#failure` the only path that applied
+  the scope and requiring sequencers to wrap every macro failure
+  through it. Rejected on two counts. It would force hand-rolled steps
+  to know the macro's failure shape (the `code:`, `data:`, and other
+  fields) just to reproduce it through the helper, defeating the
+  helper's reason for existing. And it would not have closed the gap
+  for pure-macro sequencers — their bodies have nowhere to invoke
+  `failure` because they don't write Result-returning code at all.
+
+  Class-level `.()` is also tagged so the property is uniform between
+  sequencers that use `pipeline` and sequencers that hand-build a
+  Result and skip the helper (the "the `pipeline` helper isn't
+  required" path documented above). Both shapes now produce Results
+  carrying the sequencer's scope, and the `Result#message` chain
+  finally matches what the "i18n" section documents.

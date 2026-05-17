@@ -52,6 +52,27 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   passing the value positionally (the only in-tree shape) are
   unaffected.
 
+### Fixed
+
+- **`Sequencer#pipeline` and `Sequencer.()` now apply the sequencer's
+  auto-derived `i18n_scope` to the returned Result.** Closes a
+  documented-but-unimplemented step in the `Result#message`
+  translation fallback chain. Previously only `Sequencer#failure` (the
+  explicit helper) tagged a result with the sequencer's scope; macros
+  call `Result.failure` directly with no scope, so a sequencer body
+  that returned a macro's failure unchanged produced an unscoped
+  Result and `Result#message` fell through to the framework default
+  (`sequence.errors.<code>`) instead of the per-sequencer scoped
+  translation. Pure-macro sequencers (e.g. a body that's just
+  `pipeline(ctx) { |p| p.invoke(:check_policy, ...) }`) could never
+  produce a message translated under their own namespace. Tagging at
+  the boundary (`pipeline.result` and `Sequencer.()`) via
+  `Result#with_i18n_scope` preserves nested-sequencer "innermost scope
+  wins" semantics — `with_i18n_scope` is a no-op when the scope is
+  already set, so an inner sequencer's scope survives the outer
+  wrapper. See `docs/design.md` "Resolved Through Iteration" for the
+  rationale.
+
 ## [0.6.0] - Result.failure flat kwargs; Dispatch delegates reads and exposes raise helpers
 
 ### Changed (breaking)
