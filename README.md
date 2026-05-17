@@ -494,6 +494,74 @@ with the sequencer's auto-derived i18n scope already applied. It takes
 the same kwargs as `Result.failure` (`code:`, `data:`, `step:`,
 `i18n_scope:`, `i18n_key:`, `i18n_args:`).
 
+## Translations
+
+`Result#message` translates the failure `code` through a fallback chain:
+
+1. **Per-error scope** — whatever the failure set as `i18n_scope:` (or
+   `i18n_key:` for an explicit key override).
+2. **Sequencer's auto-derived scope** — the class name underscored, with
+   `/` → `.`. `Seqs::UpdateUser` becomes `seqs.update_user`;
+   `Jobadder::Seqs::AuthorizationCallback` becomes
+   `jobadder.seqs.authorization_callback`.
+3. **Framework default** — `sequence.errors.<code>` (the gem ships
+   translations for the standard codes; see "Standard error codes" below).
+4. **Humanized code** — `:not_found` → `"Not found"`.
+
+The sequencer's scope is applied automatically. Both the `failure(ctx, ...)`
+helper *and* the boundary itself (`Sequencer#pipeline` and `Sequencer.()`)
+tag the returned `Result` with `i18n_scope` via `Result#with_i18n_scope`.
+That means an unscoped failure produced inside a macro, a hand-rolled
+step, or anywhere else in the sequencer body picks up the sequencer's
+scope when the Result bubbles out — no `failure` call required.
+
+### Defining translations for a sequencer
+
+Drop translations under the sequencer's auto-derived scope in your locale
+file:
+
+```yaml
+en:
+  jobadder:
+    seqs:
+      authorization_callback:
+        forbidden: "You are not allowed to connect this company to JobAdder"
+        authorization_failed: "Could not authorize with JobAdder"
+```
+
+Now `result.message` returns the scoped string when the sequencer fails
+with `code: :forbidden` or `code: :authorization_failed`. Missing
+translations fall through to the framework default, then to the humanized
+code — so a fresh app gets sensible behaviour with zero config.
+
+### Per-error overrides
+
+A specific failure can override the scope or key. The error's own scope
+beats the sequencer's:
+
+```ruby
+failure(
+  ctx,
+  code: :not_shippable,
+  i18n_scope: "checkout.errors",  # used instead of seqs.place_order
+  i18n_key: :address_invalid,     # used instead of :not_shippable
+  i18n_args: { region: ctx[:country] }
+)
+```
+
+Resolves `checkout.errors.address_invalid` with the `%{region}`
+interpolation supplied.
+
+### Nested sequencers: innermost scope wins
+
+`Result#with_i18n_scope` is a no-op when the scope is already set, so a
+nested sequencer's scope sticks. If `UpdateUser` calls `Present` and
+Present's `Model::Find` macro fails, the failure is tagged with
+`seqs.present` first (Present's boundary); `UpdateUser`'s boundary tries
+to retag with `seqs.update_user` but the no-op preserves the inner scope.
+Messages resolve under the namespace of the sequencer that actually
+produced the failure, not the outermost wrapper.
+
 ## Outcome blocks and safety nets
 
 `run_sequence` enforces that serious failures are addressed. Forgetting to
