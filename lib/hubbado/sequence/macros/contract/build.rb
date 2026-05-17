@@ -10,9 +10,9 @@ module Hubbado
             new
           end
 
-          def call(ctx, contract_class, attr_name = nil)
-            model = attr_name && Path.resolve(ctx, attr_name)
-            ctx[:contract] = contract_class.new(model)
+          def call(ctx, contract_class, model = nil)
+            resolved_model = model && Path.resolve(ctx, model)
+            ctx[:contract] = contract_class.new(resolved_model)
             Result.success(ctx)
           end
 
@@ -30,7 +30,7 @@ module Hubbado
               self
             end
 
-            record def call(ctx, contract_class, attr_name = nil)
+            record def call(ctx, contract_class, model = nil)
               return Result.failure(ctx, **@configured_error) if @configured_error
 
               ctx[:contract] = @return_value if @configured_success

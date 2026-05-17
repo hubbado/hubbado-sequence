@@ -126,7 +126,7 @@ class Seqs::UpdateUser
     pipeline(ctx) do |p|
       p.invoke(:find,           User,                  as: :user)
       p.invoke(:build_contract, Contracts::UpdateUser, :user)
-      p.invoke(:check_policy,   Policies::User,        :user, :update)
+      p.invoke(:check_policy,   Policies::User,        :update, :user)
 
       p.transaction do |t|
         t.invoke(:validate, from: %i[params user])
@@ -230,7 +230,7 @@ p.invoke(:build_contract, Contracts::CreateUser)         # no model
 
 | | |
 |---|---|
-| **Reads** | `ctx[attr_name]` for the model (optional) |
+| **Reads** | `ctx` at `model` for the model (optional) |
 | **Writes** | `ctx[:contract]` |
 | **Fails** | never |
 
@@ -288,19 +288,39 @@ Designed to work with the
 Builds a policy and calls the named action to authorise the operation.
 
 ```ruby
-p.invoke(:check_policy, Policies::User, :user, :update)
+p.invoke(:check_policy, Policies::User, :update, :user)  # policy on a record
+p.invoke(:check_policy, Policies::Jobs,  :list)          # plural / record-less
 ```
 
 The policy class must respond to `.build(current_user, record)`; the
 instance must respond to the action method and return a
 `Hubbado::Policy::Result`-shaped object (`permitted?`, `denied?`,
-`reason`, `message`).
+`reason`, `message`). When `record_key` is omitted the policy is built
+with `nil` as the record — the shape for plural / collection policies
+that authorise against a non-record subject (e.g. a company id read
+from `current_user`).
 
 | | |
 |---|---|
-| **Reads** | `ctx[:current_user]`, `ctx[record_key]` |
+| **Reads** | `ctx[:current_user]`, `ctx[record_key]` when `record_key` is supplied |
 | **Writes** | nothing |
 | **Fails** | `:forbidden` when `permitted?` is false; `result.data` carries `{ policy:, policy_result: }` |
+
+The macro only covers zero-arg policy actions. For actions that take
+arguments (e.g. `Policies::Jobs#create(company_id)`), hand-roll a step
+and use `Macros::Policy::Check.failure(ctx, policy, policy_result)` to
+produce the standard failure shape:
+
+```ruby
+def check_create_policy(ctx)
+  policy = Policies::Jobs.build(ctx[:current_user], nil)
+  result = policy.create(ctx[:company_id])
+
+  return Macros::Policy::Check.failure(ctx, policy, result) unless result.permitted?
+
+  Result.success(ctx)
+end
+```
 
 A controller can branch on the denial reason via `data`:
 
@@ -328,7 +348,7 @@ def call(ctx)
   pipeline(ctx) do |p|
     p.invoke(:find,           User,                  as: :user)
     p.invoke(:build_contract, Contracts::UpdateUser, :user)
-    p.invoke(:check_policy,   Policies::User,        :user, :update)
+    p.invoke(:check_policy,   Policies::User,        :update, :user)
 
     p.transaction do |t|
       t.invoke(:validate, from: %i[params user])
@@ -383,7 +403,7 @@ class Seqs::UpdateUser
       pipeline(ctx) do |p|
         p.invoke(:find,           User,                  as: :user)
         p.invoke(:build_contract, Contracts::UpdateUser, :user)
-        p.invoke(:check_policy,   Policies::User,        :user, :update)
+        p.invoke(:check_policy,   Policies::User,        :update, :user)
       end
     end
   end

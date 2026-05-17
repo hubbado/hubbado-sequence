@@ -10,9 +10,17 @@ module Hubbado
             new
           end
 
-          def call(ctx, policy, record_key, action)
+          def self.failure(ctx, policy, policy_result)
+            Result.failure(
+              ctx,
+              code: :forbidden,
+              data: { policy: policy, policy_result: policy_result }
+            )
+          end
+
+          def call(ctx, policy, action, record_key = nil)
             current_user = ctx[:current_user]
-            record = ctx[record_key]
+            record = record_key && ctx[record_key]
 
             policy_instance = policy.build(current_user, record)
             policy_result = policy_instance.public_send(action)
@@ -20,11 +28,7 @@ module Hubbado
             if policy_result.permitted?
               Result.success(ctx)
             else
-              Result.failure(
-                ctx,
-                code: :forbidden,
-                data: { policy: policy_instance, policy_result: policy_result }
-              )
+              self.class.failure(ctx, policy_instance, policy_result)
             end
           end
 
@@ -41,7 +45,7 @@ module Hubbado
               self
             end
 
-            record def call(ctx, policy, record_key, action)
+            record def call(ctx, policy, action, record_key = nil)
               unless policy.method_defined?(action)
                 raise ArgumentError,
                   "Macros::Policy::Check substitute: #{policy} does not declare action :#{action}"

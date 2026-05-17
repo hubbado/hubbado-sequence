@@ -35,7 +35,7 @@ context "Hubbado" do
           pipeline(ctx) do |p|
             p.invoke(:find,           model_class,    as: :user)
             p.invoke(:build_contract, contract_class, :user)
-            p.invoke(:check_policy,   policy_class,   :user, :update)
+            p.invoke(:check_policy,   policy_class,   :update, :user)
           end
         end
       end
@@ -117,7 +117,7 @@ context "Hubbado" do
             pipeline(ctx) do |p|
               p.invoke(:find,           model_class,    as: :user)
               p.invoke(:build_contract, contract_class, :user)
-              p.invoke(:check_policy,   denying_policy, :user, :update)
+              p.invoke(:check_policy,   denying_policy, :update, :user)
             end
           end
         end

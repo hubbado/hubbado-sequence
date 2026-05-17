@@ -4,6 +4,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Changed (breaking)
+
+- **`Macros::Policy::Check#call` signature changed** from `(ctx, policy,
+  record_key, action)` to `(ctx, policy, action, record_key = nil)`.
+  `record_key` is now a trailing optional positional; omitting it
+  builds the policy with `nil` as the record, the shape required by
+  plural / collection policies (e.g. `Policies::Jobs`) that authorise
+  on a non-record subject rather than gating on a specific record:
+
+  ```ruby
+  # before
+  p.invoke(:check_policy, Policies::User, :user, :update)
+
+  # after
+  p.invoke(:check_policy, Policies::User, :update, :user)  # singular
+  p.invoke(:check_policy, Policies::Jobs, :list)           # record-less
+  ```
+
+  Migration: at every `p.invoke(:check_policy, ...)` call site, swap
+  the third and fourth positional arguments. Substitutes and the
+  underlying `policy.method_defined?(action)` typo-catch are
+  unchanged in behaviour; the parameter order on the substitute's
+  `call` is migrated to match.
+
+  See `docs/design.md` "Resolved Through Iteration" for the rationale
+  and the alternatives considered.
+
+### Added
+
+- **`Macros::Policy::Check.failure(ctx, policy, policy_result)`** class
+  helper. Returns `Result.failure(ctx, code: :forbidden, data: { policy:,
+  policy_result: })` — the same failure shape the macro produces. Lets
+  hand-rolled policy-check steps (for policy actions that take arguments,
+  or for compound logic the macro doesn't cover) produce the standard
+  failure shape without duplicating framework knowledge.
+
+### Changed
+
+- **`Macros::Contract::Build`'s second parameter renamed** from
+  `attr_name` to `model`. The positional shape is unchanged — this is
+  an internal rename only — and the name now describes what the
+  parameter is (the ctx key/path for the model the contract wraps)
+  rather than what it isn't (an "attribute name" on anything). Callers
+  passing the value positionally (the only in-tree shape) are
+  unaffected.
+
 ## [0.6.0] - Result.failure flat kwargs; Dispatch delegates reads and exposes raise helpers
 
 ### Changed (breaking)
