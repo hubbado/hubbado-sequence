@@ -1043,3 +1043,75 @@ been settled:
   required" path documented above). Both shapes now produce Results
   carrying the sequencer's scope, and the `Result#message` chain
   finally matches what the "i18n" section documents.
+
+- **Per-error `i18n_args:` / `i18n_key:` / `i18n_scope:` in the
+  sequencer body — AI-suggested and rejected as messy.** When a
+  failure carries dynamic context for display (a captured exception
+  message, a remote-API error string, a record name to interpolate
+  into the localized template), it is tempting to plumb the dynamic
+  piece through the framework's `i18n_args:` slot at the failure site:
+
+  ```ruby
+  # Don't do this.
+  def fetch_and_update_token(ctx)
+    result = jobadder_manager.fetch_and_update_token(ctx[:company_id], ctx[:params][:code])
+    return if result.success?
+
+    failure(ctx, code: :authorization_failed, i18n_args: { message: result.message })
+  end
+  ```
+
+  And then the controller reads `result.message` and gets the fully
+  composed string back. It looks tidy at the call site — the
+  controller becomes `alert: result.message` and the `ctx[:error]`
+  side-channel disappears.
+
+  Don't. The boundary the AI is crossing here is not obvious at the
+  call site but is real: a `%{message}` interpolation slot only exists
+  because *some specific translation template* shaped that way. Naming
+  the slot inside the sequencer encodes the shape of the view template
+  into the sequencer body. The sequencer goes from "I report what
+  happened" to "I prepare arguments for a particular phrase the UI
+  wants to say." Different surface (email, JSON API, admin console)
+  with a different phrasing pattern, and the sequencer's `i18n_args:`
+  call is wrong for the new surface — but the sequencer doesn't know
+  any of those surfaces exist.
+
+  The class-level default `i18n_scope` is *not* the same trap. It is
+  declared once per class, auto-derived from the class name, and
+  invisible at the failure site — the sequencer body just returns
+  `code: :forbidden`, never mentions translations, and the framework
+  wires the scoped lookup up at the boundary. Translation knowledge
+  stays out of the sequencer body.
+
+  The dividing line is concrete: when a failure carries dynamic
+  display data (the exception text, the remote error string, anything
+  whose final wording depends on the value), the data lives in
+  `ctx[:error]` (or another descriptive ctx key, or `data:` on the
+  Result) and the controller composes the final message with
+  `I18n.t(key, message: ctx[:error])`. When a failure is a static
+  code with no per-occurrence interpolation, `result.message` from the
+  auto-applied scope is the right call.
+
+  Variants of this same trap that an AI is likely to suggest and that
+  should also be rejected:
+
+  - Renaming a translation YAML key to match a `code:` symbol "so that
+    `result.message` works." If the message needs interpolation, the
+    sequencer is the wrong place to wire that up regardless of which
+    key the YAML uses; rename in either direction is rearranging the
+    problem, not fixing it.
+  - Adding an `error_args:` or `display_args:` ctx convention that
+    flattens kwargs into the failure call. Same trap with a different
+    label — the sequencer is still naming the shape of the view
+    template.
+  - "Just for this one case, the message *is* the failure" reasoning.
+    Every case feels like the one exception. The pattern survives
+    because no individual case feels expensive.
+
+  Per-error `i18n_scope:` and `i18n_key:` overrides remain *available*
+  on `Result.failure` and the `failure(...)` helper for the genuine
+  edge cases (a sequencer that reuses another's translation table, a
+  failure that needs to escape its own namespace). They should be the
+  exception, deliberately chosen, never the default for "the message
+  has a value in it."
