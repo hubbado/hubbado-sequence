@@ -42,6 +42,25 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   or for compound logic the macro doesn't cover) produce the standard
   failure shape without duplicating framework knowledge.
 
+- **`Macros::Policy::Check` now stores the built policy on `ctx[:policy]`.**
+  After building the policy instance and before invoking the action, the
+  macro writes it to ctx under `:policy` by default. Downstream steps (e.g.
+  contract construction that needs the policy injected) can read it
+  directly without re-building. Pass `as:` to store under a different key
+  when a sequencer runs multiple policy checks:
+
+  ```ruby
+  p.invoke(:check_policy, Policies::Document, :update, :document)
+  # ctx[:policy] is now the built Policies::Document instance
+
+  p.invoke(:check_policy, Policies::User, :show, :user, as: :user_policy)
+  # ctx[:user_policy] is the built Policies::User instance
+  ```
+
+  The substitute's `succeed_with` now accepts an optional policy instance;
+  passing one mirrors the production write to `ctx[as]` so substituted
+  specs can drive the same downstream paths.
+
 ### Changed
 
 - **`Macros::Contract::Build`'s second parameter renamed** from

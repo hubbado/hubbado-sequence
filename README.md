@@ -300,10 +300,20 @@ with `nil` as the record — the shape for plural / collection policies
 that authorise against a non-record subject (e.g. a company id read
 from `current_user`).
 
+The built policy instance is written to `ctx[:policy]` so downstream
+steps (e.g. contract construction that needs the policy injected) can
+read it directly. Pass `as:` to store under a different key when a
+sequencer runs more than one policy check:
+
+```ruby
+p.invoke(:check_policy, Policies::User, :show, :user, as: :user_policy)
+# ctx[:user_policy] — the built Policies::User instance
+```
+
 | | |
 |---|---|
 | **Reads** | `ctx[:current_user]`, `ctx[record_key]` when `record_key` is supplied |
-| **Writes** | nothing |
+| **Writes** | `ctx[as]` — the built policy instance (`as:` defaults to `:policy`) |
 | **Fails** | `:forbidden` when `permitted?` is false; `result.data` carries `{ policy:, policy_result: }` |
 
 The macro only covers zero-arg policy actions. For actions that take

@@ -15,6 +15,28 @@ context "Hubbado" do
 
             assert result.success?
           end
+
+          test "stores the built policy on ctx[:policy] by default" do
+            policy_class = Hubbado::Sequence::Controls::Policy.example_class(decision: :permit, action: :update)
+
+            check_policy = Hubbado::Sequence::Macros::Policy::Check.new
+
+            ctx = Hubbado::Sequence::Ctx.build(current_user: :alice, user: :a_record)
+            check_policy.(ctx, policy_class, :update, :user)
+
+            assert ctx[:policy].is_a?(policy_class)
+          end
+
+          test "stores the built policy under the supplied as: key" do
+            policy_class = Hubbado::Sequence::Controls::Policy.example_class(decision: :permit, action: :update)
+
+            check_policy = Hubbado::Sequence::Macros::Policy::Check.new
+
+            ctx = Hubbado::Sequence::Ctx.build(current_user: :alice, user: :a_record)
+            check_policy.(ctx, policy_class, :update, :user, as: :user_policy)
+
+            assert ctx[:user_policy].is_a?(policy_class)
+          end
         end
 
         context "denied action" do
