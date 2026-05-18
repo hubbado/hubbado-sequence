@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 Gem::Specification.new do |s|
   s.name = "hubbado-sequence"
-  s.version = "0.6.0"
+  s.version = "0.7.0"
   s.summary = "A small framework for the short sequences of common steps that controller actions usually boil down to"
   s.description = "A sequencer takes input, runs an ordered sequence of steps, and returns a Result carrying a success-or-failure flag, a structured error, and the working context that was built up during execution. Built with Rails in mind but framework-agnostic."
 
