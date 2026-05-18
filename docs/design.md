@@ -861,3 +861,257 @@ been settled:
   been posted. The earlier idea of falling back to `send` on a non-hash
   was rejected: it would have made path traversal silently overlap with
   method calls, undermining the strict-Ctx contract.
+
+- **`Policy::Check` signature reordered to support record-less policies,
+  and a `Macros::Policy::Check.failure` helper added for hand-rolled
+  policy steps.** Originally the macro took `(ctx, policy, record_key,
+  action)` with `record_key` required mid-positional — every invocation
+  had to name a ctx key holding the record being authorised. That fits
+  the singular case (a `Policies::Job` authorising on `ctx[:job]`) but
+  excludes plural / collection policies (`Policies::Jobs`,
+  `Policies::Invoices`, `Policies::Assignments`) that authorise on a
+  non-record subject like a company id read from `current_user`.
+  Those policies build with `nil` as the record and gate on attributes
+  of the current user instead. With `record_key` required, the only way
+  to express them was a hand-rolled step that bypassed the macro
+  entirely — fine for the rare exception, but `hubbado-core`'s
+  migration of operations to sequencers is pulling that "exception"
+  into the routine 10-20% case. The macro needed to cover it without
+  ceremony.
+
+  The new signature is `(ctx, policy, action, record_key = nil)`.
+  `record_key` becomes a trailing optional positional; omitting it
+  builds the policy with `nil`. The two shapes read at the call site:
+
+  ```ruby
+  p.invoke(:check_policy, Policies::User, :update, :user)  # singular
+  p.invoke(:check_policy, Policies::Jobs, :list)           # plural
+  ```
+
+  Four alternatives were considered:
+
+  - **(a) Trailing optional positional** — `(ctx, policy, action,
+    record_key = nil)`. What we picked.
+  - **(b) Kwarg `record:`** — `(ctx, policy, action, record: nil)`.
+    Symmetric with `Find`/`Build`'s `as:` kwarg.
+  - **(c) Keyword `action:` with `record_key` staying mid-positional
+    optional** — `(ctx, policy, record_key = nil, action:)`. Kept the
+    original argument order intact and named the action explicitly.
+  - **(d) Keep the existing order with a mid-positional `nil` for the
+    plural case** — `(ctx, policy, record_key, action)` unchanged,
+    callers pass `nil` as `record_key`.
+
+  (a) wins on three counts. First, it matches `Contract::Build`'s
+  `(ctx, contract_class, model = nil)` shape — the gem-wide convention
+  is now "primary class positional + required positionals + trailing
+  optional ctx-key positional," and Policy::Check is the third macro
+  to take that shape after `Model::Find`'s `id_key:` settlement and
+  `Contract::Build`'s optional model. Second, it has the lightest
+  call-site weight: the singular case (still the majority) doesn't
+  pay kwarg ceremony, and the plural case is one missing positional,
+  not a kwarg-vs-positional shape shift. Third, the "order weirdness"
+  of action-before-record reads as familiarity bias once examined.
+  Action-first is the established shape in Ruby auth libraries — CanCanCan's
+  `can? :update, @article` reads action-then-subject — and the macro
+  signature is an API of its own, not a re-enactment of the underlying
+  `policy.build(user, record).action` call sequence inside.
+
+  (b) was the close runner-up. Kwarg names document intent at the
+  call site and would have read cleanly. Rejected because it forces
+  the majority case (singular, with a record) to type a kwarg every
+  time for the benefit of the minority (plural, no record). The
+  asymmetry pulls in the wrong direction — the simpler shape pays
+  ceremony so the harder shape gets one keyword.
+
+  (c) keeps the original positional order but introduces a kwarg
+  for the action. Rejected because it doesn't fix anything; it adds
+  ceremony without simplifying either case, and the trailing optional
+  pattern is already established in the gem.
+
+  (d) is the smallest possible change but the worst at the call site.
+  Every reader of `p.invoke(:check_policy, Policies::Jobs, nil,
+  :list)` has to parse "why is there a `nil` here?" before moving on.
+  A mid-positional sentinel for an optional parameter is the
+  archetypal code smell the trailing-optional convention is designed
+  to remove.
+
+  **No `with:` kwarg for argument forwarding.** The macro covers
+  zero-arg policy actions only. For actions that take arguments
+  (`Policies::Jobs#create(company_id)`), callers hand-roll a step.
+  The `Macros::Policy::Check.failure(ctx, policy, policy_result)`
+  class helper exists so hand-rolled steps produce the same failure
+  shape — `Result.failure(ctx, code: :forbidden, data: { policy:,
+  policy_result: })` — without duplicating framework knowledge at the
+  call site:
+
+  ```ruby
+  def check_create_policy(ctx)
+    policy = Policies::Jobs.build(ctx[:current_user], nil)
+    result = policy.create(ctx[:company_id])
+
+    return Macros::Policy::Check.failure(ctx, policy, result) unless result.permitted?
+
+    Result.success(ctx)
+  end
+  ```
+
+  We considered adding a `with:` kwarg that would forward ctx keys to
+  the action — `p.invoke(:check_policy, Policies::Jobs, :create, with:
+  :company_id)` — so the macro could cover two-arg policies too.
+  Rejected for three reasons. First, the symbol-list semantic ("each
+  Symbol in `with:` is a ctx key") would clash visually with the
+  Path-shaped kwargs elsewhere in the gem (`from:`, `id_key:` walk
+  nested arrays of symbols); two macros taking `Symbol`-shaped kwargs
+  with different semantics is a future trap. Second, two-arg policy
+  actions are a tiny minority and hand-rolling is fine. Third,
+  hand-rolled `def check_create_policy(ctx)` methods get descriptive
+  names that surface in the pipeline table-of-contents — a `with:`
+  kwarg would have inlined the same logic at the call site and weakened
+  that property.
+
+  **`Contract::Build` rename.** While reordering positionals on
+  `Policy::Check`, `Contract::Build`'s second parameter was renamed
+  from `attr_name` to `model`. Same parameter, more accurate name —
+  it's the ctx key/path for the model the contract wraps, not an
+  "attribute name" on anything. The positional shape is unchanged, so
+  the rename only affects callers who used the parameter as a kwarg
+  (none in-tree).
+
+  **Gem-wide signature convention, after these changes.** All
+  subject-bearing macros now follow "primary class positional +
+  required positionals + trailing optional positional / kwarg." The
+  final shapes:
+
+  | Macro | Signature |
+  |---|---|
+  | `Model::Find` | `call(ctx, model_class, as:, id_key: %i[params id])` |
+  | `Model::Build` | `call(ctx, model_class, as:, attributes: {})` |
+  | `Contract::Build` | `call(ctx, contract_class, model = nil)` |
+  | `Contract::Deserialize` | `call(ctx, from:)` |
+  | `Contract::Validate` | `call(ctx, from: nil)` |
+  | `Contract::Persist` | `call(ctx)` |
+  | `Policy::Check` | `call(ctx, policy, action, record_key = nil)` |
+
+  The class always comes first (when the macro takes one); ctx-key
+  inputs the operation acts on stay positional; ctx-key outputs (`as:`)
+  and structural modifiers (`from:`, `id_key:`, `attributes:`) are
+  kwargs. The convention is now consistent across the macro set.
+
+- **Sequencer auto-applies its `i18n_scope` to the returned Result.**
+  The "i18n" section above documents a translation fallback chain whose
+  second step is "Sequencer's auto-derived scope" — but no code applied
+  it. Only `Sequencer#failure` (the explicit helper) tagged the result
+  with the sequencer's scope, and only when the sequencer's own body
+  used that helper. Macros call `Result.failure` directly with no
+  scope, and a sequencer body that returns a macro's failure unchanged
+  produced an unscoped Result. `Result#message` then fell through to
+  the framework default (`sequence.errors.<code>`) instead of the
+  per-sequencer scoped translation. A pure-macro sequencer — one whose
+  whole body is `pipeline(ctx) { |p| p.invoke(:check_policy, ...); ... }`
+  with no hand-rolled `failure` calls — could never produce a message
+  translated under its own namespace.
+
+  `Sequencer#pipeline` (block form) and `Sequencer.()` now tag the
+  returned Result with the sequencer's `i18n_scope` via
+  `Result#with_i18n_scope`. The "innermost scope wins" semantics
+  (`with_i18n_scope` is a no-op when the scope is already set) preserve
+  nested-sequencer behaviour: an inner sequencer tags its own failure
+  first, and the outer wrapper's `with_i18n_scope` then does nothing.
+
+  We tagged at the boundary — `pipeline.result` and `Sequencer.()` —
+  rather than threading the dispatcher's scope into every macro call.
+  Two reasons. Macros are dependencies: they shouldn't know about the
+  sequencer they're invoked inside, and coupling them to the dispatcher
+  for the sake of i18n metadata would invert the dependency direction.
+  And `Result` already has `with_i18n_scope` with the right
+  no-op-when-set semantics — applying it at the boundary keeps
+  "innermost scope wins" mechanically true without changes anywhere
+  else.
+
+  We considered making `Sequencer#failure` the only path that applied
+  the scope and requiring sequencers to wrap every macro failure
+  through it. Rejected on two counts. It would force hand-rolled steps
+  to know the macro's failure shape (the `code:`, `data:`, and other
+  fields) just to reproduce it through the helper, defeating the
+  helper's reason for existing. And it would not have closed the gap
+  for pure-macro sequencers — their bodies have nowhere to invoke
+  `failure` because they don't write Result-returning code at all.
+
+  Class-level `.()` is also tagged so the property is uniform between
+  sequencers that use `pipeline` and sequencers that hand-build a
+  Result and skip the helper (the "the `pipeline` helper isn't
+  required" path documented above). Both shapes now produce Results
+  carrying the sequencer's scope, and the `Result#message` chain
+  finally matches what the "i18n" section documents.
+
+- **Per-error `i18n_args:` / `i18n_key:` / `i18n_scope:` in the
+  sequencer body — AI-suggested and rejected as messy.** When a
+  failure carries dynamic context for display (a captured exception
+  message, a remote-API error string, a record name to interpolate
+  into the localized template), it is tempting to plumb the dynamic
+  piece through the framework's `i18n_args:` slot at the failure site:
+
+  ```ruby
+  # Don't do this.
+  def fetch_and_update_token(ctx)
+    result = jobadder_manager.fetch_and_update_token(ctx[:company_id], ctx[:params][:code])
+    return if result.success?
+
+    failure(ctx, code: :authorization_failed, i18n_args: { message: result.message })
+  end
+  ```
+
+  And then the controller reads `result.message` and gets the fully
+  composed string back. It looks tidy at the call site — the
+  controller becomes `alert: result.message` and the `ctx[:error]`
+  side-channel disappears.
+
+  Don't. The boundary the AI is crossing here is not obvious at the
+  call site but is real: a `%{message}` interpolation slot only exists
+  because *some specific translation template* shaped that way. Naming
+  the slot inside the sequencer encodes the shape of the view template
+  into the sequencer body. The sequencer goes from "I report what
+  happened" to "I prepare arguments for a particular phrase the UI
+  wants to say." Different surface (email, JSON API, admin console)
+  with a different phrasing pattern, and the sequencer's `i18n_args:`
+  call is wrong for the new surface — but the sequencer doesn't know
+  any of those surfaces exist.
+
+  The class-level default `i18n_scope` is *not* the same trap. It is
+  declared once per class, auto-derived from the class name, and
+  invisible at the failure site — the sequencer body just returns
+  `code: :forbidden`, never mentions translations, and the framework
+  wires the scoped lookup up at the boundary. Translation knowledge
+  stays out of the sequencer body.
+
+  The dividing line is concrete: when a failure carries dynamic
+  display data (the exception text, the remote error string, anything
+  whose final wording depends on the value), the data lives in
+  `ctx[:error]` (or another descriptive ctx key, or `data:` on the
+  Result) and the controller composes the final message with
+  `I18n.t(key, message: ctx[:error])`. When a failure is a static
+  code with no per-occurrence interpolation, `result.message` from the
+  auto-applied scope is the right call.
+
+  Variants of this same trap that an AI is likely to suggest and that
+  should also be rejected:
+
+  - Renaming a translation YAML key to match a `code:` symbol "so that
+    `result.message` works." If the message needs interpolation, the
+    sequencer is the wrong place to wire that up regardless of which
+    key the YAML uses; rename in either direction is rearranging the
+    problem, not fixing it.
+  - Adding an `error_args:` or `display_args:` ctx convention that
+    flattens kwargs into the failure call. Same trap with a different
+    label — the sequencer is still naming the shape of the view
+    template.
+  - "Just for this one case, the message *is* the failure" reasoning.
+    Every case feels like the one exception. The pattern survives
+    because no individual case feels expensive.
+
+  Per-error `i18n_scope:` and `i18n_key:` overrides remain *available*
+  on `Result.failure` and the `failure(...)` helper for the genuine
+  edge cases (a sequencer that reuses another's translation table, a
+  failure that needs to escape its own namespace). They should be the
+  exception, deliberately chosen, never the default for "the message
+  has a value in it."

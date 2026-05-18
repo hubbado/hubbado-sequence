@@ -11,9 +11,31 @@ context "Hubbado" do
             check_policy = Hubbado::Sequence::Macros::Policy::Check.new
 
             ctx = Hubbado::Sequence::Ctx.build(current_user: :alice, user: :a_record)
-            result = check_policy.(ctx, policy_class, :user, :update)
+            result = check_policy.(ctx, policy_class, :update, :user)
 
             assert result.success?
+          end
+
+          test "stores the built policy on ctx[:policy] by default" do
+            policy_class = Hubbado::Sequence::Controls::Policy.example_class(decision: :permit, action: :update)
+
+            check_policy = Hubbado::Sequence::Macros::Policy::Check.new
+
+            ctx = Hubbado::Sequence::Ctx.build(current_user: :alice, user: :a_record)
+            check_policy.(ctx, policy_class, :update, :user)
+
+            assert ctx[:policy].is_a?(policy_class)
+          end
+
+          test "stores the built policy under the supplied as: key" do
+            policy_class = Hubbado::Sequence::Controls::Policy.example_class(decision: :permit, action: :update)
+
+            check_policy = Hubbado::Sequence::Macros::Policy::Check.new
+
+            ctx = Hubbado::Sequence::Ctx.build(current_user: :alice, user: :a_record)
+            check_policy.(ctx, policy_class, :update, :user, as: :user_policy)
+
+            assert ctx[:user_policy].is_a?(policy_class)
           end
         end
 
@@ -24,7 +46,7 @@ context "Hubbado" do
             check_policy = Hubbado::Sequence::Macros::Policy::Check.new
 
             ctx = Hubbado::Sequence::Ctx.build(current_user: :alice, user: :a_record)
-            result = check_policy.(ctx, policy_class, :user, :update)
+            result = check_policy.(ctx, policy_class, :update, :user)
 
             assert result.failure?
             assert result.code == :forbidden
@@ -36,10 +58,76 @@ context "Hubbado" do
             check_policy = Hubbado::Sequence::Macros::Policy::Check.new
 
             ctx = Hubbado::Sequence::Ctx.build(current_user: :alice, user: :a_record)
-            result = check_policy.(ctx, policy_class, :user, :update)
+            result = check_policy.(ctx, policy_class, :update, :user)
 
             assert result.data[:policy].is_a?(policy_class)
             assert result.data[:policy_result].denied?
+          end
+        end
+
+        context "without a record_key (plural / collection policy)" do
+          test "builds the policy with nil as the record and returns success when permitted" do
+            policy_class = Hubbado::Sequence::Controls::Policy.example_class(decision: :permit, action: :list)
+
+            check_policy = Hubbado::Sequence::Macros::Policy::Check.new
+
+            ctx = Hubbado::Sequence::Ctx.build(current_user: :alice)
+            result = check_policy.(ctx, policy_class, :list)
+
+            assert result.success?
+          end
+
+          test "does not read any record key from ctx" do
+            policy_class = Hubbado::Sequence::Controls::Policy.example_class(decision: :permit, action: :list)
+
+            check_policy = Hubbado::Sequence::Macros::Policy::Check.new
+
+            ctx = Hubbado::Sequence::Ctx.build(current_user: :alice)
+            # No :user key in ctx; if record_key were consulted, ctx[:user] would raise KeyError.
+            result = check_policy.(ctx, policy_class, :list)
+
+            assert result.success?
+          end
+
+          test "returns failure with code :forbidden when denied" do
+            policy_class = Hubbado::Sequence::Controls::Policy.example_class(decision: :deny, action: :list)
+
+            check_policy = Hubbado::Sequence::Macros::Policy::Check.new
+
+            ctx = Hubbado::Sequence::Ctx.build(current_user: :alice)
+            result = check_policy.(ctx, policy_class, :list)
+
+            assert result.failure?
+            assert result.code == :forbidden
+            assert result.data[:policy].is_a?(policy_class)
+            assert result.data[:policy_result].denied?
+          end
+        end
+
+        context ".failure class helper" do
+          test "returns a Result.failure with code :forbidden and the policy + policy_result on data" do
+            policy_class = Hubbado::Sequence::Controls::Policy.example_class(decision: :deny, action: :update)
+            policy_instance = policy_class.build(:alice, :a_record)
+            policy_result = policy_instance.update
+
+            ctx = Hubbado::Sequence::Ctx.build(current_user: :alice)
+            result = Hubbado::Sequence::Macros::Policy::Check.failure(ctx, policy_instance, policy_result)
+
+            assert result.failure?
+            assert result.code == :forbidden
+            assert result.data == { policy: policy_instance, policy_result: policy_result }
+          end
+
+          test "preserves the supplied ctx on the failed result" do
+            policy_class = Hubbado::Sequence::Controls::Policy.example_class(decision: :deny, action: :update)
+            policy_instance = policy_class.build(:alice, :a_record)
+            policy_result = policy_instance.update
+
+            ctx = Hubbado::Sequence::Ctx.build(current_user: :alice, marker: :present)
+            result = Hubbado::Sequence::Macros::Policy::Check.failure(ctx, policy_instance, policy_result)
+
+            assert result.ctx.equal?(ctx)
+            assert result.ctx[:marker] == :present
           end
         end
 
@@ -56,7 +144,15 @@ context "Hubbado" do
           test "default behaviour is pass-through success" do
             seq = seq_class.new
 
-            result = seq.check_policy.(Hubbado::Sequence::Ctx.new, policy_class, :user, :update)
+            result = seq.check_policy.(Hubbado::Sequence::Ctx.new, policy_class, :update, :user)
+
+            assert result.success?
+          end
+
+          test "default behaviour is pass-through success without a record_key" do
+            seq = seq_class.new
+
+            result = seq.check_policy.(Hubbado::Sequence::Ctx.new, policy_class, :update)
 
             assert result.success?
           end
@@ -65,7 +161,7 @@ context "Hubbado" do
             seq = seq_class.new
             seq.check_policy.succeed_with
 
-            result = seq.check_policy.(Hubbado::Sequence::Ctx.new, policy_class, :user, :update)
+            result = seq.check_policy.(Hubbado::Sequence::Ctx.new, policy_class, :update, :user)
 
             assert result.success?
           end
@@ -74,7 +170,7 @@ context "Hubbado" do
             seq = seq_class.new
             seq.check_policy.fail_with(code: :forbidden, data: { reason: :not_owner })
 
-            result = seq.check_policy.(Hubbado::Sequence::Ctx.new, policy_class, :user, :update)
+            result = seq.check_policy.(Hubbado::Sequence::Ctx.new, policy_class, :update, :user)
 
             assert result.failure?
             assert result.code == :forbidden
@@ -83,7 +179,7 @@ context "Hubbado" do
 
           test "checked? records calls" do
             seq = seq_class.new
-            seq.check_policy.(Hubbado::Sequence::Ctx.new, policy_class, :user, :update)
+            seq.check_policy.(Hubbado::Sequence::Ctx.new, policy_class, :update, :user)
 
             assert seq.check_policy.checked?
           end
@@ -93,7 +189,7 @@ context "Hubbado" do
 
             captured = nil
             begin
-              seq.check_policy.(Hubbado::Sequence::Ctx.new, policy_class, :user, :unknown_action)
+              seq.check_policy.(Hubbado::Sequence::Ctx.new, policy_class, :unknown_action, :user)
             rescue ArgumentError => e
               captured = e
             end

@@ -29,7 +29,7 @@ context "Hubbado" do
           end
         end
 
-        context "without an attr name" do
+        context "without a model path" do
           test "wraps nil so the contract has no model" do
             ctx = Hubbado::Sequence::Ctx.new
             result = build_contract.(ctx, contract_class)
@@ -41,7 +41,7 @@ context "Hubbado" do
         end
 
         context "missing path" do
-          test "raises KeyError when the supplied attr_name is absent from ctx" do
+          test "raises KeyError when the supplied model path is absent from ctx" do
             ctx = Hubbado::Sequence::Ctx.new
 
             captured = nil

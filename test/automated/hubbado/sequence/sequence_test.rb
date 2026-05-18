@@ -85,6 +85,140 @@ context "Hubbado" do
         end
       end
 
+      context "i18n_scope auto-applied to returned Result" do
+        context "pipeline block form" do
+          test "applies the sequencer's scope to a failure with no scope" do
+            seq = Class.new do
+              include Hubbado::Sequence::Sequencer
+
+              def self.name; "Seqs::PipelineFails"; end
+              def self.build; new; end
+
+              def call(ctx)
+                pipeline(ctx) do |p|
+                  p.step(:fail_step)
+                end
+              end
+
+              def fail_step(ctx)
+                Hubbado::Sequence::Result.failure(ctx, code: :something)
+              end
+            end
+
+            result = seq.(Hubbado::Sequence::Ctx.new)
+
+            assert result.failure?
+            assert result.i18n_scope == "seqs.pipeline_fails"
+          end
+
+          test "does not override an i18n_scope already set on the inner result" do
+            seq = Class.new do
+              include Hubbado::Sequence::Sequencer
+
+              def self.name; "Seqs::PipelineFailsWithScope"; end
+              def self.build; new; end
+
+              def call(ctx)
+                pipeline(ctx) do |p|
+                  p.step(:fail_step)
+                end
+              end
+
+              def fail_step(ctx)
+                Hubbado::Sequence::Result.failure(
+                  ctx, code: :something, i18n_scope: "inner.scope"
+                )
+              end
+            end
+
+            result = seq.(Hubbado::Sequence::Ctx.new)
+
+            assert result.i18n_scope == "inner.scope"
+          end
+
+          test "applies the sequencer's scope to a successful pipeline result" do
+            seq = Class.new do
+              include Hubbado::Sequence::Sequencer
+
+              def self.name; "Seqs::PipelineSucceeds"; end
+              def self.build; new; end
+
+              def call(ctx)
+                pipeline(ctx) do |p|
+                  p.step(:noop)
+                end
+              end
+
+              def noop(ctx)
+                Hubbado::Sequence::Result.success(ctx)
+              end
+            end
+
+            result = seq.(Hubbado::Sequence::Ctx.new)
+
+            assert result.success?
+            assert result.i18n_scope == "seqs.pipeline_succeeds"
+          end
+        end
+
+        context "class-level .()" do
+          test "applies the sequencer's scope to a hand-built failure with no scope" do
+            seq = Class.new do
+              include Hubbado::Sequence::Sequencer
+
+              def self.name; "Seqs::HandBuiltFails"; end
+              def self.build; new; end
+
+              def call(ctx)
+                Hubbado::Sequence::Result.failure(ctx, code: :something)
+              end
+            end
+
+            result = seq.(Hubbado::Sequence::Ctx.new)
+
+            assert result.failure?
+            assert result.i18n_scope == "seqs.hand_built_fails"
+          end
+
+          test "applies the sequencer's scope to a hand-built success" do
+            seq = Class.new do
+              include Hubbado::Sequence::Sequencer
+
+              def self.name; "Seqs::HandBuiltSucceeds"; end
+              def self.build; new; end
+
+              def call(ctx)
+                Hubbado::Sequence::Result.success(ctx)
+              end
+            end
+
+            result = seq.(Hubbado::Sequence::Ctx.new)
+
+            assert result.success?
+            assert result.i18n_scope == "seqs.hand_built_succeeds"
+          end
+
+          test "does not override an i18n_scope already set by the sequencer" do
+            seq = Class.new do
+              include Hubbado::Sequence::Sequencer
+
+              def self.name; "Seqs::HandBuiltWithScope"; end
+              def self.build; new; end
+
+              def call(ctx)
+                Hubbado::Sequence::Result.failure(
+                  ctx, code: :something, i18n_scope: "inner.scope"
+                )
+              end
+            end
+
+            result = seq.(Hubbado::Sequence::Ctx.new)
+
+            assert result.i18n_scope == "inner.scope"
+          end
+        end
+      end
+
       context "dependency macro" do
         macro_class = Class.new do
           def self.name; "ExampleMacro"; end

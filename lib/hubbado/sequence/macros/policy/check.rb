@@ -10,29 +10,36 @@ module Hubbado
             new
           end
 
-          def call(ctx, policy, record_key, action)
+          def self.failure(ctx, policy, policy_result)
+            Result.failure(
+              ctx,
+              code: :forbidden,
+              data: { policy: policy, policy_result: policy_result }
+            )
+          end
+
+          def call(ctx, policy, action, record_key = nil, as: nil)
+            as ||= :policy
             current_user = ctx[:current_user]
-            record = ctx[record_key]
+            record = record_key && ctx[record_key]
 
             policy_instance = policy.build(current_user, record)
+            ctx[as] = policy_instance
             policy_result = policy_instance.public_send(action)
 
             if policy_result.permitted?
               Result.success(ctx)
             else
-              Result.failure(
-                ctx,
-                code: :forbidden,
-                data: { policy: policy_instance, policy_result: policy_result }
-              )
+              self.class.failure(ctx, policy_instance, policy_result)
             end
           end
 
           module Substitute
             include ::RecordInvocation
 
-            def succeed_with
+            def succeed_with(policy_instance = nil)
               @configured_success = true
+              @return_policy = policy_instance
               self
             end
 
@@ -41,7 +48,9 @@ module Hubbado
               self
             end
 
-            record def call(ctx, policy, record_key, action)
+            record def call(ctx, policy, action, record_key = nil, as: nil)
+              as ||= :policy
+
               unless policy.method_defined?(action)
                 raise ArgumentError,
                   "Macros::Policy::Check substitute: #{policy} does not declare action :#{action}"
@@ -49,6 +58,7 @@ module Hubbado
 
               return Result.failure(ctx, **@configured_error) if @configured_error
 
+              ctx[as] = @return_policy if @return_policy
               Result.success(ctx)
             end
 

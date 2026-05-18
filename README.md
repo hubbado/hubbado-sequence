@@ -126,7 +126,7 @@ class Seqs::UpdateUser
     pipeline(ctx) do |p|
       p.invoke(:find,           User,                  as: :user)
       p.invoke(:build_contract, Contracts::UpdateUser, :user)
-      p.invoke(:check_policy,   Policies::User,        :user, :update)
+      p.invoke(:check_policy,   Policies::User,        :update, :user)
 
       p.transaction do |t|
         t.invoke(:validate, from: %i[params user])
@@ -230,7 +230,7 @@ p.invoke(:build_contract, Contracts::CreateUser)         # no model
 
 | | |
 |---|---|
-| **Reads** | `ctx[attr_name]` for the model (optional) |
+| **Reads** | `ctx` at `model` for the model (optional) |
 | **Writes** | `ctx[:contract]` |
 | **Fails** | never |
 
@@ -288,19 +288,49 @@ Designed to work with the
 Builds a policy and calls the named action to authorise the operation.
 
 ```ruby
-p.invoke(:check_policy, Policies::User, :user, :update)
+p.invoke(:check_policy, Policies::User, :update, :user)  # policy on a record
+p.invoke(:check_policy, Policies::Jobs,  :list)          # plural / record-less
 ```
 
 The policy class must respond to `.build(current_user, record)`; the
 instance must respond to the action method and return a
 `Hubbado::Policy::Result`-shaped object (`permitted?`, `denied?`,
-`reason`, `message`).
+`reason`, `message`). When `record_key` is omitted the policy is built
+with `nil` as the record — the shape for plural / collection policies
+that authorise against a non-record subject (e.g. a company id read
+from `current_user`).
+
+The built policy instance is written to `ctx[:policy]` so downstream
+steps (e.g. contract construction that needs the policy injected) can
+read it directly. Pass `as:` to store under a different key when a
+sequencer runs more than one policy check:
+
+```ruby
+p.invoke(:check_policy, Policies::User, :show, :user, as: :user_policy)
+# ctx[:user_policy] — the built Policies::User instance
+```
 
 | | |
 |---|---|
-| **Reads** | `ctx[:current_user]`, `ctx[record_key]` |
-| **Writes** | nothing |
+| **Reads** | `ctx[:current_user]`, `ctx[record_key]` when `record_key` is supplied |
+| **Writes** | `ctx[as]` — the built policy instance (`as:` defaults to `:policy`) |
 | **Fails** | `:forbidden` when `permitted?` is false; `result.data` carries `{ policy:, policy_result: }` |
+
+The macro only covers zero-arg policy actions. For actions that take
+arguments (e.g. `Policies::Jobs#create(company_id)`), hand-roll a step
+and use `Macros::Policy::Check.failure(ctx, policy, policy_result)` to
+produce the standard failure shape:
+
+```ruby
+def check_create_policy(ctx)
+  policy = Policies::Jobs.build(ctx[:current_user], nil)
+  result = policy.create(ctx[:company_id])
+
+  return Macros::Policy::Check.failure(ctx, policy, result) unless result.permitted?
+
+  Result.success(ctx)
+end
+```
 
 A controller can branch on the denial reason via `data`:
 
@@ -328,7 +358,7 @@ def call(ctx)
   pipeline(ctx) do |p|
     p.invoke(:find,           User,                  as: :user)
     p.invoke(:build_contract, Contracts::UpdateUser, :user)
-    p.invoke(:check_policy,   Policies::User,        :user, :update)
+    p.invoke(:check_policy,   Policies::User,        :update, :user)
 
     p.transaction do |t|
       t.invoke(:validate, from: %i[params user])
@@ -383,7 +413,7 @@ class Seqs::UpdateUser
       pipeline(ctx) do |p|
         p.invoke(:find,           User,                  as: :user)
         p.invoke(:build_contract, Contracts::UpdateUser, :user)
-        p.invoke(:check_policy,   Policies::User,        :user, :update)
+        p.invoke(:check_policy,   Policies::User,        :update, :user)
       end
     end
   end
@@ -473,6 +503,74 @@ end
 with the sequencer's auto-derived i18n scope already applied. It takes
 the same kwargs as `Result.failure` (`code:`, `data:`, `step:`,
 `i18n_scope:`, `i18n_key:`, `i18n_args:`).
+
+## Translations
+
+`Result#message` translates the failure `code` through a fallback chain:
+
+1. **Per-error scope** — whatever the failure set as `i18n_scope:` (or
+   `i18n_key:` for an explicit key override).
+2. **Sequencer's auto-derived scope** — the class name underscored, with
+   `/` → `.`. `Seqs::UpdateUser` becomes `seqs.update_user`;
+   `Jobadder::Seqs::AuthorizationCallback` becomes
+   `jobadder.seqs.authorization_callback`.
+3. **Framework default** — `sequence.errors.<code>` (the gem ships
+   translations for the standard codes; see "Standard error codes" below).
+4. **Humanized code** — `:not_found` → `"Not found"`.
+
+The sequencer's scope is applied automatically. Both the `failure(ctx, ...)`
+helper *and* the boundary itself (`Sequencer#pipeline` and `Sequencer.()`)
+tag the returned `Result` with `i18n_scope` via `Result#with_i18n_scope`.
+That means an unscoped failure produced inside a macro, a hand-rolled
+step, or anywhere else in the sequencer body picks up the sequencer's
+scope when the Result bubbles out — no `failure` call required.
+
+### Defining translations for a sequencer
+
+Drop translations under the sequencer's auto-derived scope in your locale
+file:
+
+```yaml
+en:
+  jobadder:
+    seqs:
+      authorization_callback:
+        forbidden: "You are not allowed to connect this company to JobAdder"
+        authorization_failed: "Could not authorize with JobAdder"
+```
+
+Now `result.message` returns the scoped string when the sequencer fails
+with `code: :forbidden` or `code: :authorization_failed`. Missing
+translations fall through to the framework default, then to the humanized
+code — so a fresh app gets sensible behaviour with zero config.
+
+### Per-error overrides
+
+A specific failure can override the scope or key. The error's own scope
+beats the sequencer's:
+
+```ruby
+failure(
+  ctx,
+  code: :not_shippable,
+  i18n_scope: "checkout.errors",  # used instead of seqs.place_order
+  i18n_key: :address_invalid,     # used instead of :not_shippable
+  i18n_args: { region: ctx[:country] }
+)
+```
+
+Resolves `checkout.errors.address_invalid` with the `%{region}`
+interpolation supplied.
+
+### Nested sequencers: innermost scope wins
+
+`Result#with_i18n_scope` is a no-op when the scope is already set, so a
+nested sequencer's scope sticks. If `UpdateUser` calls `Present` and
+Present's `Model::Find` macro fails, the failure is tagged with
+`seqs.present` first (Present's boundary); `UpdateUser`'s boundary tries
+to retag with `seqs.update_user` but the no-op preserves the inner scope.
+Messages resolve under the namespace of the sequencer that actually
+produced the failure, not the outermost wrapper.
 
 ## Outcome blocks and safety nets
 
