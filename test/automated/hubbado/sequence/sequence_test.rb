@@ -14,7 +14,7 @@ context "Hubbado" do
           new
         end
 
-        def call(ctx)
+        def sequence(ctx)
           ctx[:value] = ctx[:value] * 2
           Hubbado::Sequence::Result.success(ctx)
         end
@@ -39,14 +39,14 @@ context "Hubbado" do
       end
 
       context "instance call" do
-        pipeline_class = Class.new do
+        reads_missing_class = Class.new do
           include Hubbado::Sequence::Sequencer
 
           def self.name
             "Seqs::ReadsMissingKey"
           end
 
-          def call(ctx)
+          def sequence(ctx)
             pipeline(ctx) do |p|
               p.step(:read_missing)
             end
@@ -57,15 +57,85 @@ context "Hubbado" do
           end
         end
 
+        branches_in_block_class = Class.new do
+          include Hubbado::Sequence::Sequencer
+
+          def self.name
+            "Seqs::BranchesInBlock"
+          end
+
+          def sequence(ctx)
+            pipeline(ctx) do |p|
+              p.step(:write_flag)
+              p.step(:follow_flag) if ctx[:flag]
+            end
+          end
+
+          def write_flag(ctx)
+            ctx[:flag] = true
+          end
+
+          def follow_flag(ctx)
+            ctx[:followed] = true
+          end
+        end
+
         test "keyword arguments run on a strict Ctx" do
           assert_raises KeyError do
-            pipeline_class.new.(params: {})
+            reads_missing_class.new.(params: {})
           end
         end
 
         test "a plain Hash runs on a strict Ctx" do
           assert_raises KeyError do
-            pipeline_class.new.({ params: {} })
+            reads_missing_class.new.({ params: {} })
+          end
+        end
+
+        test "the pipeline block sees a step's write" do
+          result = branches_in_block_class.new.(params: {})
+
+          assert result.ctx[:followed] == true
+        end
+
+        test "an existing Ctx passes through as the same object" do
+          ctx = Hubbado::Sequence::Ctx.build(flag: false)
+          result = branches_in_block_class.new.(ctx)
+
+          assert result.ctx.equal?(ctx)
+        end
+
+        test "a Ctx and keyword arguments together are rejected" do
+          assert_raises ArgumentError do
+            branches_in_block_class.new.(Hubbado::Sequence::Ctx.new, params: {})
+          end
+        end
+      end
+
+      context "pipeline given a plain Hash" do
+        defines_call_class = Class.new do
+          include Hubbado::Sequence::Sequencer
+
+          def self.name
+            "Seqs::DefinesCall"
+          end
+
+          def call(ctx)
+            pipeline(ctx) do |p|
+              p.step(:noop)
+            end
+          end
+
+          def noop(ctx); end
+        end
+
+        test "is rejected with a pointer to sequence(ctx)" do
+          assert_raises(
+            ArgumentError,
+            "Seqs::DefinesCall#pipeline expects a Hubbado::Sequence::Ctx; " \
+            "define the steps in sequence(ctx), not call(ctx)"
+          ) do
+            defines_call_class.new.(params: {})
           end
         end
       end
@@ -126,7 +196,7 @@ context "Hubbado" do
               def self.name; "Seqs::PipelineFails"; end
               def self.build; new; end
 
-              def call(ctx)
+              def sequence(ctx)
                 pipeline(ctx) do |p|
                   p.step(:fail_step)
                 end
@@ -150,7 +220,7 @@ context "Hubbado" do
               def self.name; "Seqs::PipelineFailsWithScope"; end
               def self.build; new; end
 
-              def call(ctx)
+              def sequence(ctx)
                 pipeline(ctx) do |p|
                   p.step(:fail_step)
                 end
@@ -175,7 +245,7 @@ context "Hubbado" do
               def self.name; "Seqs::PipelineSucceeds"; end
               def self.build; new; end
 
-              def call(ctx)
+              def sequence(ctx)
                 pipeline(ctx) do |p|
                   p.step(:noop)
                 end
@@ -201,7 +271,7 @@ context "Hubbado" do
               def self.name; "Seqs::HandBuiltFails"; end
               def self.build; new; end
 
-              def call(ctx)
+              def sequence(ctx)
                 Hubbado::Sequence::Result.failure(ctx, code: :something)
               end
             end
@@ -219,7 +289,7 @@ context "Hubbado" do
               def self.name; "Seqs::HandBuiltSucceeds"; end
               def self.build; new; end
 
-              def call(ctx)
+              def sequence(ctx)
                 Hubbado::Sequence::Result.success(ctx)
               end
             end
@@ -237,7 +307,7 @@ context "Hubbado" do
               def self.name; "Seqs::HandBuiltWithScope"; end
               def self.build; new; end
 
-              def call(ctx)
+              def sequence(ctx)
                 Hubbado::Sequence::Result.failure(
                   ctx, code: :something, i18n_scope: "inner.scope"
                 )

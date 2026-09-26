@@ -49,20 +49,8 @@ module Hubbado
       end
 
       module ClassMethods
-        # Bridge between the kwargs boundary (controllers and other top-level
-        # callers) and the ctx-passing convention used inside the framework.
-        # A caller can supply either an existing Ctx (the nested-sequencer case)
-        # or keyword arguments that become the initial ctx (the outermost case).
-        def call(ctx = nil, **kwargs)
-          if ctx.nil?
-            ctx = Ctx.build(kwargs)
-          elsif !kwargs.empty?
-            raise ArgumentError, "#{name}.() takes either a Ctx or keyword arguments, not both"
-          elsif !ctx.is_a?(Ctx)
-            ctx = Ctx.build(ctx)
-          end
-
-          build.call(ctx).with_i18n_scope(i18n_scope)
+        def call(ctx = nil, **)
+          build.(ctx, **).with_i18n_scope(i18n_scope)
         end
 
         # Default factory: a sequencer with no configurable dependencies needs
@@ -78,6 +66,25 @@ module Hubbado
         end
       end
 
+      # Bridge between the kwargs boundary (controllers, specs and other
+      # callers) and the ctx-passing convention used inside the framework.
+      # A caller can supply either an existing Ctx (the nested-sequencer case)
+      # or keyword arguments that become the initial ctx (the outermost case).
+      # Either way the sequencer's `sequence(ctx)` sees a Ctx from its first
+      # line, so its pipeline block and its steps share one object.
+      def call(ctx = nil, **kwargs)
+        if ctx.nil?
+          ctx = Ctx.build(kwargs)
+        elsif !kwargs.empty?
+          raise ArgumentError,
+            "#{self.class.name}.() takes either a Ctx or keyword arguments, not both"
+        elsif !ctx.is_a?(Ctx)
+          ctx = Ctx.build(ctx)
+        end
+
+        sequence(ctx)
+      end
+
       def i18n_scope
         self.class.i18n_scope
       end
@@ -88,19 +95,23 @@ module Hubbado
       end
 
       # Builds a Pipeline that auto-dispatches blockless `step(:foo)` calls to
-      # `self.foo(ctx)`. Use this inside a sequencer's `call` body in place of
-      # `Pipeline.(ctx)` whenever steps are local methods.
+      # `self.foo(ctx)`. Use this inside a sequencer's `sequence` body in place
+      # of `Pipeline.(ctx)` whenever steps are local methods.
       #
       # Block form (`pipeline(ctx) { |p| ... }`) yields the pipeline, runs the
       # block, and returns the final Result — no trailing `.result` needed. The
       # non-block form returns the Pipeline so chained `.step(...)...result`
       # calls still work.
       #
-      # An instance call (`seq.(params: ...)`, as in a spec) reaches `call`
-      # with a plain Hash, so it is wrapped here to make the steps as strict
-      # as they are behind the class-level `.()`.
+      # Anything but a Ctx means the sequencer defined `call` and so bypassed
+      # the Ctx that `Sequencer#call` builds.
       def pipeline(ctx, &block)
-        ctx = Ctx.build(ctx) unless ctx.is_a?(Ctx)
+        unless ctx.is_a?(Ctx)
+          raise ArgumentError,
+            "#{self.class.name}#pipeline expects a Hubbado::Sequence::Ctx; " \
+            "define the steps in sequence(ctx), not call(ctx)"
+        end
+
         pipe = Pipeline.new(ctx, dispatcher: self)
 
         if block

@@ -9,7 +9,7 @@ context "Hubbado" do
 
           define_singleton_method(:name) { "Seqs::Canned" }
 
-          define_method(:call) do |_ctx|
+          define_method(:sequence) do |_ctx|
             canned_result
           end
 
@@ -152,7 +152,7 @@ context "Hubbado" do
           end
 
           captured = nil
-          klass.define_method(:call) do |c|
+          klass.define_method(:sequence) do |c|
             captured = c
             Hubbado::Sequence::Result.success(c)
           end
