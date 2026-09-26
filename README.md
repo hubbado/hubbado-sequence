@@ -173,6 +173,11 @@ to see the sequence shape, jump to the method for details.
 Pipeline class is an implementation detail; sequencers do not construct
 it directly.
 
+`pipeline(ctx)` wraps a plain Hash in a strict `Ctx`, so an instance call
+such as `seq.(params: ...)` in a spec is as strict as the class-level
+`.()`. Code in `call` outside the pipeline still holds the plain Hash, so
+keep the `call` body to the `pipeline(ctx)` expression.
+
 ## Built-in macros
 
 Each macro is a dependency declared on a sequencer with `dependency :name, Macros::...`

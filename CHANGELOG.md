@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Changed (breaking)
+
+- **Instance calls are strict.** `Sequencer#pipeline(ctx)` wraps a plain
+  Hash in a `Ctx`, so a sequencer called through its instance
+  (`seq.(params: ...)`, the usual shape in a spec) now raises `KeyError`
+  on a read of a missing ctx key, as the class-level `.()` already did. A
+  `Ctx` passes through as the same object, so a nested sequencer still
+  shares its parent's `Ctx`. Specs that depended on the lenient Hash (a
+  step that reads a key the spec never passed, or an assertion that
+  `result.ctx[:foo]` is `nil` for a key the sequencer never sets) will
+  fail and need a fix at their cause.
+
 ## [0.7.0] - Macros::Policy::Check record-less policies; Sequencer i18n_scope applied at boundary
 
 ### Changed (breaking)
