@@ -122,7 +122,7 @@ class Seqs::UpdateUser
     end
   end
 
-  def call(ctx)
+  def sequence(ctx)
     pipeline(ctx) do |p|
       p.invoke(:find,           User,                  as: :user)
       p.invoke(:build_contract, Contracts::UpdateUser, :user)
@@ -166,17 +166,20 @@ end
 - `p.step(:foo)` — a local instance method. Dispatches to `self.foo(ctx)`.
 
 Every `step` is a method on the sequencer with the same name as the step.
-This makes the `call` body a table of contents — scan `p.step(:...)` lines
-to see the sequence shape, jump to the method for details.
+This makes the `sequence` body a table of contents — scan `p.step(:...)`
+lines to see the sequence shape, jump to the method for details.
 
 `pipeline(ctx)` is the only way to build a pipeline. The underlying
 Pipeline class is an implementation detail; sequencers do not construct
 it directly.
 
-`pipeline(ctx)` wraps a plain Hash in a strict `Ctx`, so an instance call
-such as `seq.(params: ...)` in a spec is as strict as the class-level
-`.()`. Code in `call` outside the pipeline still holds the plain Hash, so
-keep the `call` body to the `pipeline(ctx)` expression.
+A sequencer defines its steps in `sequence(ctx)` and leaves `call` to the
+gem. `Sequencer#call` accepts keyword arguments, a plain Hash or a `Ctx`,
+and hands `sequence` a `Ctx`, so an instance call such as
+`seq.(params: ...)` in a spec is as strict as the class-level `.()`, and
+the pipeline block and the steps share one `Ctx`. `pipeline` raises
+`ArgumentError` when it gets anything but a `Ctx`, which is what happens
+when a sequencer defines `call` itself.
 
 ## Built-in macros
 
@@ -359,7 +362,7 @@ A failed inner step raises `ActiveRecord::Rollback` and the failed `Result`
 still propagates outward.
 
 ```ruby
-def call(ctx)
+def sequence(ctx)
   pipeline(ctx) do |p|
     p.invoke(:find,           User,                  as: :user)
     p.invoke(:build_contract, Contracts::UpdateUser, :user)
@@ -414,7 +417,7 @@ class Seqs::UpdateUser
       end
     end
 
-    def call(ctx)
+    def sequence(ctx)
       pipeline(ctx) do |p|
         p.invoke(:find,           User,                  as: :user)
         p.invoke(:build_contract, Contracts::UpdateUser, :user)
@@ -437,7 +440,7 @@ class Seqs::UpdateUser
     end
   end
 
-  def call(ctx)
+  def sequence(ctx)
     pipeline(ctx) do |p|
       p.invoke(:present)
 
@@ -489,7 +492,7 @@ success and the pipeline continues with the same `ctx`. Only
 `Result.failure(...)` or the `failure(ctx, code: ...)` helper short-circuits.
 
 ```ruby
-def call(ctx)
+def sequence(ctx)
   pipeline(ctx) do |p|
     p.step(:must_be_premium)
     p.invoke(:persist)

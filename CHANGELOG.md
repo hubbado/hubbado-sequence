@@ -8,15 +8,24 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Changed (breaking)
 
-- **Instance calls are strict.** `Sequencer#pipeline(ctx)` wraps a plain
-  Hash in a `Ctx`, so a sequencer called through its instance
-  (`seq.(params: ...)`, the usual shape in a spec) now raises `KeyError`
-  on a read of a missing ctx key, as the class-level `.()` already did. A
-  `Ctx` passes through as the same object, so a nested sequencer still
-  shares its parent's `Ctx`. Specs that depended on the lenient Hash (a
-  step that reads a key the spec never passed, or an assertion that
-  `result.ctx[:foo]` is `nil` for a key the sequencer never sets) will
-  fail and need a fix at their cause.
+- **Sequencers define `sequence(ctx)`; the gem owns `call`.** Rename each
+  sequencer's `def call(ctx)` to `def sequence(ctx)`. `Sequencer#call`
+  accepts keyword arguments, a plain Hash or a `Ctx`, builds a `Ctx` from
+  the first two, and calls `sequence(ctx)`. The class-level `.()` builds
+  the instance and delegates to it. A `Ctx` passes through as the same
+  object, so a nested sequencer still shares its parent's `Ctx`.
+- **Instance calls are strict.** A sequencer called through its instance
+  (`seq.(params: ...)`, the usual shape in a spec) now runs on a `Ctx` and
+  raises `KeyError` on a read of a missing key, as the class-level `.()`
+  already did. Code in the pipeline block and the steps share that one
+  `Ctx`. Specs that depended on the lenient Hash (a step that reads a key
+  the spec never passed, or an assertion that `result.ctx[:foo]` is `nil`
+  for a key the sequencer never sets) will fail and need a fix at their
+  cause.
+- **`pipeline` rejects anything but a `Ctx`** with an `ArgumentError`
+  that points to `sequence(ctx)`. A sequencer that still defines `call`
+  bypasses the gem's `call`, so it fails here rather than running on a
+  plain Hash.
 
 ## [0.7.0] - Macros::Policy::Check record-less policies; Sequencer i18n_scope applied at boundary
 

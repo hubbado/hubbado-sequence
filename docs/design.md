@@ -198,7 +198,7 @@ you can see the sequencer's shape at a glance.
 
 `p.step(:foo)` always dispatches to `self.foo(ctx)` on the sequencer. No
 inline-block step bodies — every step is a method on the sequencer with
-the same name. This makes the `call` body a pure table of contents: the
+the same name. This makes the `sequence` body a pure table of contents: the
 reader scans `p.step(:...)` lines to see the sequence shape, then jumps
 to the method when they want details.
 
@@ -389,23 +389,34 @@ substitutes whose return matters, and everything else just passes through.
 ## Sequencers
 
 A sequencer is a class that includes `Hubbado::Sequence::Sequencer`,
-declares its dependencies, defines a `build` factory, and implements `call`.
+declares its dependencies, defines a `build` factory, and implements
+`sequence(ctx)`.
 
 ### Call Signature
 
-A sequencer's instance `call` takes a `Ctx`. The class-level `.()` shorthand
-bridges the kwargs world (controllers and other top-level callers) to the
-ctx world by building a `Ctx` from its kwargs and delegating to the
-instance.
+A sequencer defines `sequence(ctx)`, which takes a `Ctx`. The gem owns
+`call`: the instance `call` bridges the kwargs world (controllers, specs,
+other callers) to the ctx world by building a `Ctx` from kwargs or a plain
+Hash, passing an existing `Ctx` through, and then calling `sequence`. The
+class-level `.()` builds the instance and delegates to that `call`.
 
-We considered two conventions for sequencer `call`:
+The gem owns `call` so that every path hands the sequencer's own code one
+`Ctx` from its first line. When sequencers defined `call(ctx)` themselves,
+an instance call with kwargs (the usual shape in a spec) reached them with
+a plain Hash: reads of missing keys returned `nil`, and a later attempt to
+wrap the Hash inside `pipeline` gave the steps a copy while code in the
+pipeline block still read the original. `pipeline` raises on anything but
+a `Ctx`, so a sequencer that defines `call` itself fails loudly.
+
+We considered two conventions for the sequencer's entry point:
 
 - **`call(ctx)`** — uniform with steps and macros, ctx flows through
   unchanged when nested.
 - **`call(**kwargs)`** — kwargs become a fresh ctx, signature documents
   inputs.
 
-We picked **`call(ctx)`** at the instance level (kwargs at the class level).
+We picked **`ctx`** for the sequencer's own method (`sequence(ctx)`), with
+kwargs accepted at the gem-owned `call`.
 Reasons:
 
 - **Symmetry with macros and steps.** A nested sequencer is "wired the same
@@ -1115,3 +1126,24 @@ been settled:
   failure that needs to escape its own namespace). They should be the
   exception, deliberately chosen, never the default for "the message
   has a value in it."
+
+- **Sequencers define `sequence(ctx)`; the gem owns `call`.** Sequencers
+  used to define `call(ctx)` themselves, so an instance call with kwargs
+  (`seq = Seq.new; seq.(params: ...)`, the usual shape in a spec) reached
+  them with a plain Hash. A read of a missing key returned `nil` there
+  while it raised `KeyError` behind the class-level `.()`, so specs could
+  not find a missing-key fault that production would raise.
+
+  Wrapping the Hash in a `Ctx` inside `pipeline` was tried and dropped: the
+  steps got the new `Ctx`, but code in the pipeline block still held the
+  caller's Hash, so a block that branched on a step's write read `nil` in
+  a spec and the real value in production.
+
+  The gem's `call` now builds the `Ctx` before any sequencer code runs, so
+  the pipeline block and the steps share one real `Ctx` on every path
+  (class call, `p.invoke`, a spec's instance call, a direct call of a
+  sequencer dependency). `pipeline` raises on anything but a `Ctx`, so a
+  sequencer that still defines `call` fails loudly rather than running
+  lenient. A prepended wrapper around each sequencer's own `call` gave the
+  same guarantee but hid the entry point; requiring every caller to pass
+  a `Ctx` put a longer setup into every spec.
