@@ -38,6 +38,38 @@ context "Hubbado" do
         end
       end
 
+      context "instance call" do
+        pipeline_class = Class.new do
+          include Hubbado::Sequence::Sequencer
+
+          def self.name
+            "Seqs::ReadsMissingKey"
+          end
+
+          def call(ctx)
+            pipeline(ctx) do |p|
+              p.step(:read_missing)
+            end
+          end
+
+          def read_missing(ctx)
+            ctx[:missing]
+          end
+        end
+
+        test "keyword arguments run on a strict Ctx" do
+          assert_raises KeyError do
+            pipeline_class.new.(params: {})
+          end
+        end
+
+        test "a plain Hash runs on a strict Ctx" do
+          assert_raises KeyError do
+            pipeline_class.new.({ params: {} })
+          end
+        end
+      end
+
       context "i18n scope auto-derivation" do
         test "derives the scope from the class name" do
           assert sequencer_class.i18n_scope == "seqs.example_seq"

@@ -95,7 +95,12 @@ module Hubbado
       # block, and returns the final Result — no trailing `.result` needed. The
       # non-block form returns the Pipeline so chained `.step(...)...result`
       # calls still work.
+      #
+      # An instance call (`seq.(params: ...)`, as in a spec) reaches `call`
+      # with a plain Hash, so it is wrapped here to make the steps as strict
+      # as they are behind the class-level `.()`.
       def pipeline(ctx, &block)
+        ctx = Ctx.build(ctx) unless ctx.is_a?(Ctx)
         pipe = Pipeline.new(ctx, dispatcher: self)
 
         if block
