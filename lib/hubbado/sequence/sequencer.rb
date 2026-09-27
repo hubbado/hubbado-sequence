@@ -50,7 +50,7 @@ module Hubbado
 
       module ClassMethods
         def call(ctx = nil, **)
-          build.(ctx, **).with_i18n_scope(i18n_scope)
+          build.(ctx, **)
         end
 
         # Default factory: a sequencer with no configurable dependencies needs
@@ -71,18 +71,20 @@ module Hubbado
       # A caller can supply either an existing Ctx (the nested-sequencer case)
       # or keyword arguments that become the initial ctx (the outermost case).
       # Either way the sequencer's `sequence(ctx)` sees a Ctx from its first
-      # line, so its pipeline block and its steps share one object.
+      # line, so its pipeline block and its steps share one object. The
+      # Result is tagged here, at the one boundary every caller crosses, so a
+      # hand-built Result gets the sequencer's i18n scope too (innermost wins).
       def call(ctx = nil, **kwargs)
         if ctx.nil?
           ctx = Ctx.build(kwargs)
         elsif !kwargs.empty?
           raise ArgumentError,
-            "#{self.class.name}.() takes either a Ctx or keyword arguments, not both"
+            "#{self.class.name}#call takes either a Ctx or keyword arguments, not both"
         elsif !ctx.is_a?(Ctx)
           ctx = Ctx.build(ctx)
         end
 
-        sequence(ctx)
+        sequence(ctx).with_i18n_scope(i18n_scope)
       end
 
       def i18n_scope
@@ -116,7 +118,7 @@ module Hubbado
 
         if block
           block.call(pipe)
-          pipe.result.with_i18n_scope(i18n_scope)
+          pipe.result
         else
           pipe
         end

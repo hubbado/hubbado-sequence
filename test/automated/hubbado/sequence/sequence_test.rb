@@ -106,7 +106,10 @@ context "Hubbado" do
         end
 
         test "a Ctx and keyword arguments together are rejected" do
-          assert_raises ArgumentError do
+          assert_raises(
+            ArgumentError,
+            "Seqs::BranchesInBlock#call takes either a Ctx or keyword arguments, not both"
+          ) do
             branches_in_block_class.new.(Hubbado::Sequence::Ctx.new, params: {})
           end
         end
@@ -317,6 +320,46 @@ context "Hubbado" do
             result = seq.(Hubbado::Sequence::Ctx.new)
 
             assert result.i18n_scope == "inner.scope"
+          end
+        end
+
+        context "instance call" do
+          hand_built_class = Class.new do
+            include Hubbado::Sequence::Sequencer
+
+            def self.name; "Seqs::InstanceHandBuiltFails"; end
+
+            def sequence(ctx)
+              Hubbado::Sequence::Result.failure(ctx, code: :something)
+            end
+          end
+
+          test "applies the sequencer's scope to a hand-built failure with no scope" do
+            result = hand_built_class.new.(params: {})
+
+            assert result.i18n_scope == "seqs.instance_hand_built_fails"
+          end
+
+          test "a nested sequencer's hand-built failure keeps the nested sequencer's scope" do
+            parent_class = Class.new do
+              include Hubbado::Sequence::Sequencer
+
+              def self.name; "Seqs::Parent"; end
+
+              def sequence(ctx)
+                pipeline(ctx) do |p|
+                  p.invoke(:nested)
+                end
+              end
+            end
+            parent_class.dependency :nested, hand_built_class
+
+            parent = parent_class.new
+            parent.nested = hand_built_class.new
+
+            result = parent.(params: {})
+
+            assert result.i18n_scope == "seqs.instance_hand_built_fails"
           end
         end
       end
