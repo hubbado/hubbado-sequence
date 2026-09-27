@@ -26,7 +26,7 @@ context "Hubbado" do
           end
         end
 
-        define_method(:call) do |ctx|
+        define_method(:sequence) do |ctx|
           pipeline(ctx) do |p|
             p.invoke(:find, model, as: :user)
             p.invoke(:build_contract, contract_class, :user)
@@ -107,7 +107,7 @@ context "Hubbado" do
             new.tap { |instance| instance.returns_nil = nil_returning_dep.new }
           end
 
-          define_method(:call) do |ctx|
+          define_method(:sequence) do |ctx|
             pipeline(ctx) do |p|
               p.invoke(:returns_nil)
             end
@@ -127,7 +127,7 @@ context "Hubbado" do
             include Hubbado::Sequence::Sequencer
             define_singleton_method(:name) { "Seqs::Empty" }
 
-            define_method(:call) do |ctx|
+            define_method(:sequence) do |ctx|
               pipeline(ctx) do |p|
                 p.invoke(:nonexistent, :arg)
               end

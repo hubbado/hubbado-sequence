@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Changed (breaking)
+
+- **Sequencers define `sequence(ctx)`; the gem owns `call`.** Rename each
+  sequencer's `def call(ctx)` to `def sequence(ctx)`. `Sequencer#call`
+  accepts keyword arguments, a plain Hash or a `Ctx`, builds a `Ctx` from
+  the first two, and calls `sequence(ctx)`. The class-level `.()` builds
+  the instance and delegates to it. A `Ctx` passes through as the same
+  object, so a nested sequencer still shares its parent's `Ctx`.
+- **Instance calls are strict.** A sequencer called through its instance
+  (`seq.(params: ...)`, the usual shape in a spec) now runs on a `Ctx` and
+  raises `KeyError` on a read of a missing key, as the class-level `.()`
+  already did. Code in the pipeline block and the steps share that one
+  `Ctx`. Specs that depended on the lenient Hash (a step that reads a key
+  the spec never passed, or an assertion that `result.ctx[:foo]` is `nil`
+  for a key the sequencer never sets) will fail and need a fix at their
+  cause.
+- **A plain Hash passed to an instance call is copied into a new `Ctx`.**
+  The steps write into that `Ctx`, not into the caller's Hash, so read
+  writes from `result.ctx`. A `Ctx` passed in is still the same object.
+- **`pipeline` rejects anything but a `Ctx`** with an `ArgumentError`
+  that points to `sequence(ctx)`. A sequencer that still defines `call`
+  replaces the gem's `call`: an instance call with keyword arguments (a
+  spec) fails at `pipeline` with that message, and the class-level `.()`
+  fails with a wrong-number-of-arguments error.
+- **The i18n scope is applied by `Sequencer#call`**, not by the class-level
+  `.()` and the `pipeline` block form. A sequencer that returns a Result it
+  built by hand now gets its own scope on an instance call and when nested
+  through `p.invoke`, as it already did through `.()`. Innermost scope
+  still wins.
+
 ## [0.7.0] - Macros::Policy::Check record-less policies; Sequencer i18n_scope applied at boundary
 
 ### Changed (breaking)

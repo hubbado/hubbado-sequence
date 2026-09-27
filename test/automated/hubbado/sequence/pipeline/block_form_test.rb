@@ -12,7 +12,7 @@ context "Hubbado" do
           include Hubbado::Sequence::Sequencer
           define_singleton_method(:name) { "Seqs::BlockForm" }
 
-          define_method(:call) do |ctx|
+          define_method(:sequence) do |ctx|
             pipeline(ctx) do |p|
               p.step(:double_value)
               p.step(:add_one)
@@ -45,7 +45,7 @@ context "Hubbado" do
             include Hubbado::Sequence::Sequencer
             define_singleton_method(:name) { "Seqs::Conditional" }
 
-            define_method(:call) do |ctx|
+            define_method(:sequence) do |ctx|
               pipeline(ctx) do |p|
                 p.step(:always)
                 p.step(:extra) if ctx[:run_extra]
@@ -68,7 +68,7 @@ context "Hubbado" do
             include Hubbado::Sequence::Sequencer
             define_singleton_method(:name) { "Seqs::BlockFormFailing" }
 
-            define_method(:call) do |ctx|
+            define_method(:sequence) do |ctx|
               pipeline(ctx) do |p|
                 p.step(:fine)
                 p.step(:bad)
@@ -92,7 +92,7 @@ context "Hubbado" do
             include Hubbado::Sequence::Sequencer
             define_singleton_method(:name) { "Seqs::BlockFormTx" }
 
-            define_method(:call) do |ctx|
+            define_method(:sequence) do |ctx|
               pipeline(ctx) do |p|
                 p.step(:before_tx)
                 p.transaction do |t|
@@ -120,7 +120,7 @@ context "Hubbado" do
             include Hubbado::Sequence::Sequencer
             define_singleton_method(:name) { "Seqs::Chained" }
 
-            define_method(:call) do |ctx|
+            define_method(:sequence) do |ctx|
               pipeline(ctx)
                 .step(:set)
                 .result

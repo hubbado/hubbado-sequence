@@ -31,7 +31,7 @@ context "Hubbado" do
           end
         end
 
-        define_method(:call) do |ctx|
+        define_method(:sequence) do |ctx|
           pipeline(ctx) do |p|
             p.invoke(:find,           model_class,    as: :user)
             p.invoke(:build_contract, contract_class, :user)
@@ -58,7 +58,7 @@ context "Hubbado" do
           end
         end
 
-        define_method(:call) do |ctx|
+        define_method(:sequence) do |ctx|
           pipeline(ctx) do |p|
             p.invoke(:present)
             p.invoke(:validate, from: %i[params user])
@@ -113,7 +113,7 @@ context "Hubbado" do
               Hubbado::Sequence::Macros::Policy::Check.configure(instance)
             end
           end
-          define_method(:call) do |ctx|
+          define_method(:sequence) do |ctx|
             pipeline(ctx) do |p|
               p.invoke(:find,           model_class,    as: :user)
               p.invoke(:build_contract, contract_class, :user)
@@ -135,7 +135,7 @@ context "Hubbado" do
               Hubbado::Sequence::Macros::Contract::Persist.configure(instance)
             end
           end
-          define_method(:call) do |ctx|
+          define_method(:sequence) do |ctx|
             pipeline(ctx) do |p|
               p.invoke(:present)
               p.invoke(:validate, from: %i[params user])

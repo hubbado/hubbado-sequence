@@ -33,7 +33,7 @@ context "Hubbado" do
           end
         end
 
-        define_method(:call) do |ctx|
+        define_method(:sequence) do |ctx|
           pipeline(ctx) do |p|
             p.invoke(:find,           model_class,    as: :user)
             p.invoke(:build_contract, contract_class, :user)

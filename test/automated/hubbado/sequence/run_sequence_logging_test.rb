@@ -10,7 +10,7 @@ context "Hubbado" do
 
             define_singleton_method(:name) { "Seqs::Logged" }
 
-            define_method(:call) do |_ctx|
+            define_method(:sequence) do |_ctx|
               canned_result
             end
 

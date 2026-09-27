@@ -14,7 +14,7 @@ context "Hubbado" do
 
           define_singleton_method(:name) { "Seqs::AutoDispatch" }
 
-          define_method(:call) do |ctx|
+          define_method(:sequence) do |ctx|
             pipeline(ctx)
               .step(:double_value)
               .step(:add_one)
@@ -50,7 +50,7 @@ context "Hubbado" do
             include Hubbado::Sequence::Sequencer
             define_singleton_method(:name) { "Seqs::Failing" }
 
-            define_method(:call) do |ctx|
+            define_method(:sequence) do |ctx|
               pipeline(ctx)
                 .step(:fine)
                 .step(:bad)
@@ -77,7 +77,7 @@ context "Hubbado" do
           include Hubbado::Sequence::Sequencer
           define_singleton_method(:name) { "Seqs::WithTransaction" }
 
-          define_method(:call) do |ctx|
+          define_method(:sequence) do |ctx|
             pipeline(ctx)
               .step(:before_tx)
               .transaction do |t|
@@ -107,7 +107,7 @@ context "Hubbado" do
           include Hubbado::Sequence::Sequencer
           define_singleton_method(:name) { "Seqs::Missing" }
 
-          define_method(:call) do |ctx|
+          define_method(:sequence) do |ctx|
             pipeline(ctx).step(:nope).result
           end
         end
