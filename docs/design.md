@@ -309,8 +309,8 @@ humanised codes.
 
 For nested sequencers, the innermost scope wins. If `UpdateUser` calls
 `Present` and Present's `Model::Find` fails, the Result is tagged with
-Present's scope, and `UpdateUser`'s class-level `with_i18n_scope` is a
-no-op when the Result already has one. This means errors are translated
+Present's scope by Present's `call`, and `UpdateUser`'s `call` then finds
+the scope already set, so its `with_i18n_scope` is a no-op. This means errors are translated
 under the namespace of the sequencer that actually produced them, not the
 outermost wrapper.
 
@@ -406,7 +406,9 @@ an instance call with kwargs (the usual shape in a spec) reached them with
 a plain Hash: reads of missing keys returned `nil`, and a later attempt to
 wrap the Hash inside `pipeline` gave the steps a copy while code in the
 pipeline block still read the original. `pipeline` raises on anything but
-a `Ctx`, so a sequencer that defines `call` itself fails loudly.
+a `Ctx`, so a sequencer that defines `call` itself fails loudly on a spec's
+instance call; through the class-level `.()` it fails with a
+wrong-number-of-arguments error.
 
 We considered two conventions for the sequencer's entry point:
 
@@ -1143,7 +1145,15 @@ been settled:
   the pipeline block and the steps share one real `Ctx` on every path
   (class call, `p.invoke`, a spec's instance call, a direct call of a
   sequencer dependency). `pipeline` raises on anything but a `Ctx`, so a
-  sequencer that still defines `call` fails loudly rather than running
-  lenient. A prepended wrapper around each sequencer's own `call` gave the
-  same guarantee but hid the entry point; requiring every caller to pass
-  a `Ctx` put a longer setup into every spec.
+  sequencer that still defines `call` fails loudly on a spec's instance
+  call rather than running lenient. A prepended wrapper around each
+  sequencer's own `call` gave the same guarantee but hid the entry point;
+  requiring every caller to pass a `Ctx` put a longer setup into every
+  spec.
+
+  With the gem owning `call`, the i18n scope moved there too. It had been
+  applied by the class-level `.()` and the `pipeline` block form, the
+  boundaries the gem owned at the time, so a hand-built Result got no
+  scope on a spec's instance call and its parent's scope when nested
+  through `p.invoke`. `Sequencer#call` is the one boundary every caller
+  crosses, so it is now the only place the scope is applied.

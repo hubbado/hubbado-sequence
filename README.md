@@ -178,8 +178,12 @@ gem. `Sequencer#call` accepts keyword arguments, a plain Hash or a `Ctx`,
 and hands `sequence` a `Ctx`, so an instance call such as
 `seq.(params: ...)` in a spec is as strict as the class-level `.()`, and
 the pipeline block and the steps share one `Ctx`. `pipeline` raises
-`ArgumentError` when it gets anything but a `Ctx`, which is what happens
-when a sequencer defines `call` itself.
+`ArgumentError` when it gets anything but a `Ctx`. A sequencer that
+defines `call` itself replaces the gem's `call`: an instance call with
+keyword arguments (a spec) then fails at `pipeline` with a message that
+points to `sequence(ctx)`, and the class-level `.()` fails with a
+wrong-number-of-arguments error. `sequence` is the gem's entry point, so
+do not give a dependency, a `configure` attribute or a step that name.
 
 ## Built-in macros
 
@@ -527,8 +531,9 @@ the same kwargs as `Result.failure` (`code:`, `data:`, `step:`,
 4. **Humanized code** — `:not_found` → `"Not found"`.
 
 The sequencer's scope is applied automatically. Both the `failure(ctx, ...)`
-helper *and* the boundary itself (`Sequencer#pipeline` and `Sequencer.()`)
-tag the returned `Result` with `i18n_scope` via `Result#with_i18n_scope`.
+helper *and* the boundary itself (`Sequencer#call`, which the class-level
+`.()`, a spec's instance call and a nested `p.invoke` all go through) tag
+the returned `Result` with `i18n_scope` via `Result#with_i18n_scope`.
 That means an unscoped failure produced inside a macro, a hand-rolled
 step, or anywhere else in the sequencer body picks up the sequencer's
 scope when the Result bubbles out — no `failure` call required.
