@@ -95,7 +95,17 @@ module Hubbado
       # block, and returns the final Result — no trailing `.result` needed. The
       # non-block form returns the Pipeline so chained `.step(...)...result`
       # calls still work.
+      #
+      # Anything but a Ctx means an instance call skipped the Ctx that the
+      # class-level `.()` builds; run on a plain Hash, a missing key would
+      # read as nil rather than raise.
       def pipeline(ctx, &block)
+        unless ctx.is_a?(Ctx)
+          raise ArgumentError,
+            "#{self.class.name}#pipeline expects a Hubbado::Sequence::Ctx, got #{ctx.class}; " \
+            "pass Hubbado::Sequence::Ctx.build(...) to an instance call"
+        end
+
         pipe = Pipeline.new(ctx, dispatcher: self, i18n_scope: i18n_scope)
 
         if block
