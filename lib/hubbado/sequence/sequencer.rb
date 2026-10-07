@@ -96,11 +96,11 @@ module Hubbado
       # non-block form returns the Pipeline so chained `.step(...)...result`
       # calls still work.
       def pipeline(ctx, &block)
-        pipe = Pipeline.new(ctx, dispatcher: self)
+        pipe = Pipeline.new(ctx, dispatcher: self, i18n_scope: i18n_scope)
 
         if block
           block.call(pipe)
-          pipe.result.with_i18n_scope(i18n_scope)
+          pipe.result
         else
           pipe
         end
