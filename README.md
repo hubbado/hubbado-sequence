@@ -519,11 +519,18 @@ the same kwargs as `Result.failure` (`code:`, `data:`, `step:`,
 4. **Humanized code** — `:not_found` → `"Not found"`.
 
 The sequencer's scope is applied automatically. Both the `failure(ctx, ...)`
-helper *and* the boundary itself (`Sequencer#pipeline` and `Sequencer.()`)
-tag the returned `Result` with `i18n_scope` via `Result#with_i18n_scope`.
-That means an unscoped failure produced inside a macro, a hand-rolled
-step, or anywhere else in the sequencer body picks up the sequencer's
-scope when the Result bubbles out — no `failure` call required.
+helper *and* the boundary itself (the result of `pipeline(ctx)`, in block
+and chained form, and `Sequencer.()`) tag the returned `Result` with
+`i18n_scope` via `Result#with_i18n_scope`. That means an unscoped failure
+produced inside a macro, a hand-rolled step, or anywhere else in the
+pipeline picks up the sequencer's scope when the Result bubbles out — no
+`failure` call required.
+
+A sequencer that returns a failure without `pipeline` must build it with
+`failure(ctx, ...)`, not `Result.failure(...)`. An instance call (a test,
+or a nested sequencer run through `p.invoke`) reaches the sequencer's
+`call` directly, so only the helper gives that failure the sequencer's
+scope there.
 
 ### Defining translations for a sequencer
 

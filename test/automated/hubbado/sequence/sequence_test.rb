@@ -161,6 +161,50 @@ context "Hubbado" do
           end
         end
 
+        context "pipeline non-block form" do
+          non_block_class = Class.new do
+            include Hubbado::Sequence::Sequencer
+
+            def self.name; "Seqs::NonBlockFails"; end
+
+            def call(ctx)
+              pipeline(ctx).step(:fail_step).result
+            end
+
+            def fail_step(ctx)
+              Hubbado::Sequence::Result.failure(ctx, code: :something)
+            end
+          end
+
+          test "an instance call gets the sequencer's scope" do
+            result = non_block_class.new.(Hubbado::Sequence::Ctx.new)
+
+            assert result.i18n_scope == "seqs.non_block_fails"
+          end
+
+          test "a nested sequencer keeps its own scope, not its parent's" do
+            parent_class = Class.new do
+              include Hubbado::Sequence::Sequencer
+
+              def self.name; "Seqs::NonBlockParent"; end
+
+              def call(ctx)
+                pipeline(ctx) do |p|
+                  p.invoke(:nested)
+                end
+              end
+            end
+            parent_class.dependency :nested, non_block_class
+
+            parent = parent_class.new
+            parent.nested = non_block_class.new
+
+            result = parent.(Hubbado::Sequence::Ctx.new)
+
+            assert result.i18n_scope == "seqs.non_block_fails"
+          end
+        end
+
         context "class-level .()" do
           test "applies the sequencer's scope to a hand-built failure with no scope" do
             seq = Class.new do

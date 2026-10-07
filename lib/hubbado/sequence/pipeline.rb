@@ -4,11 +4,12 @@ module Hubbado
     # `pipeline(ctx)` helper. Not part of the public API — sequencers reach
     # it through the helper.
     class Pipeline
-      def initialize(ctx, dispatcher:)
+      def initialize(ctx, dispatcher:, i18n_scope: nil)
         @ctx = ctx
         @successful_steps = []
         @failed_result = nil
         @dispatcher = dispatcher
+        @i18n_scope = i18n_scope
       end
 
       # `step(:name)` dispatches to `dispatcher.send(name, ctx)`. The method
@@ -55,11 +56,9 @@ module Hubbado
       end
 
       def result
-        if @failed_result
-          @failed_result
-        else
-          Result.success(@ctx, successful_steps: @successful_steps.dup)
-        end
+        result = @failed_result || Result.success(@ctx, successful_steps: @successful_steps.dup)
+
+        result.with_i18n_scope(@i18n_scope)
       end
 
       private
