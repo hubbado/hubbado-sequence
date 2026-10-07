@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- **A chained `pipeline(ctx).step(...).result` carries the sequencer's
+  i18n scope.** Only the block form tagged its Result, so a sequencer
+  using the chained form got no scope on an instance call, and its
+  parent's scope when nested through `p.invoke`. The pipeline now applies
+  the scope in both forms. The README states that a failure returned
+  without `pipeline` should be built with the `failure` helper.
+
 ## [0.7.0] - Macros::Policy::Check record-less policies; Sequencer i18n_scope applied at boundary
 
 ### Changed (breaking)
