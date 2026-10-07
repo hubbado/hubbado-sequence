@@ -396,7 +396,9 @@ declares its dependencies, defines a `build` factory, and implements `call`.
 A sequencer's instance `call` takes a `Ctx`. The class-level `.()` shorthand
 bridges the kwargs world (controllers and other top-level callers) to the
 ctx world by building a `Ctx` from its kwargs and delegating to the
-instance.
+instance. `pipeline` raises `ArgumentError` when it gets anything but a
+`Ctx`, so an instance call with kwargs (a test that skips the class-level
+`.()`) fails at once rather than running on a lenient Hash.
 
 We considered two conventions for sequencer `call`:
 
@@ -1115,3 +1117,24 @@ been settled:
   failure that needs to escape its own namespace). They should be the
   exception, deliberately chosen, never the default for "the message
   has a value in it."
+
+- **`pipeline` rejects anything but a `Ctx`.** The instance `call` was
+  documented as taking a `Ctx`, but nothing enforced it, and the README's
+  testing examples called instances with kwargs. Ruby packed those into a
+  plain Hash, so in a spec a read of a missing ctx key returned `nil`
+  while production, through the class-level `.()`, raised `KeyError`. A
+  hubbado_core seq spec passed with such a read; only a request spec
+  found it.
+
+  `pipeline` now raises `ArgumentError` on anything but a `Ctx`, and specs
+  pass `Ctx.build(...)`. This enforces the existing contract rather than
+  changing it. Two alternatives were built and dropped. Wrapping the Hash
+  in a new `Ctx` inside `pipeline` gave the steps a copy while code in the
+  pipeline block still read the caller's Hash, so a block that branched on
+  a step's write read `nil` in a spec. Moving `call` into the gem, with
+  sequencers defining `sequence(ctx)`, worked, but renamed every
+  sequencer's entry point and added a second name for it, to keep specs
+  passing kwargs.
+
+  The guard covers sequencers that use `pipeline`. A sequencer that
+  hand-builds its Result is not guarded.

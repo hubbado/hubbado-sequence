@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+### Changed (breaking)
+
+- **`pipeline` rejects anything but a `Ctx`.** A sequencer's instance
+  `call` takes a `Ctx`, as `docs/design.md` already stated, and
+  `pipeline` now raises `ArgumentError` when it gets keyword arguments or
+  a plain Hash. A spec that calls an instance
+  (`seq = Seq.new; seq.(params: ...)`) must pass
+  `Hubbado::Sequence::Ctx.build(params: ...)`. On a plain Hash, a read of a
+  missing ctx key returned `nil` in the spec while it raised `KeyError` in
+  production through the class-level `.()`, so specs could not find that
+  fault. The class-level `.()` still accepts keyword arguments.
+
 ### Fixed
 
 - **A chained `pipeline(ctx).step(...).result` carries the sequencer's
