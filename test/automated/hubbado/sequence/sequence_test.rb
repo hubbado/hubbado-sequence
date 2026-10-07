@@ -38,6 +38,55 @@ context "Hubbado" do
         end
       end
 
+      context "instance call" do
+        branches_in_block_class = Class.new do
+          include Hubbado::Sequence::Sequencer
+
+          def self.name
+            "Seqs::BranchesInBlock"
+          end
+
+          def call(ctx)
+            pipeline(ctx) do |p|
+              p.step(:write_flag)
+              p.step(:follow_flag) if ctx[:flag]
+            end
+          end
+
+          def write_flag(ctx)
+            ctx[:flag] = true
+          end
+
+          def follow_flag(ctx)
+            ctx[:followed] = true
+          end
+        end
+
+        test "keyword arguments are rejected with a pointer to Ctx.build" do
+          assert_raises(
+            ArgumentError,
+            "Seqs::BranchesInBlock#pipeline expects a Hubbado::Sequence::Ctx, got Hash; " \
+            "pass Hubbado::Sequence::Ctx.build(...) to an instance call"
+          ) do
+            branches_in_block_class.new.(params: {})
+          end
+        end
+
+        test "a plain Hash is rejected" do
+          assert_raises ArgumentError do
+            branches_in_block_class.new.({ params: {} })
+          end
+        end
+
+        test "a Ctx runs, and the pipeline block sees the steps' writes" do
+          ctx = Hubbado::Sequence::Ctx.build(params: {})
+          result = branches_in_block_class.new.(ctx)
+
+          assert result.ctx.equal?(ctx)
+          assert ctx[:followed] == true
+        end
+      end
+
       context "i18n scope auto-derivation" do
         test "derives the scope from the class name" do
           assert sequencer_class.i18n_scope == "seqs.example_seq"

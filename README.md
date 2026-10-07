@@ -635,6 +635,13 @@ as substitutes. Tests configure the substitutes for the scenario at hand.
 Substitutes default to pass-through `Result.success(ctx)` so a test only
 configures the ones whose return matters.
 
+An instance call takes a `Ctx`, the same strict ctx that the class-level
+`.()` builds for production, so a test passes one:
+`seq.(Hubbado::Sequence::Ctx.build(params: ..., current_user: ...))`.
+`pipeline` raises `ArgumentError` for keyword arguments or a plain Hash,
+because on a Hash a read of a missing key would return `nil` in the test
+and raise `KeyError` in production.
+
 ### Substituting macros directly
 
 ```ruby
@@ -646,7 +653,7 @@ context "Seqs::UpdateUser::Present happy path" do
   seq.find.succeed_with(user)
   seq.build_contract.succeed_with(contract)
 
-  result = seq.(params: { id: 1 }, current_user: User.new)
+  result = seq.(Hubbado::Sequence::Ctx.build(params: { id: 1 }, current_user: User.new))
 
   test "Is success" do
     assert(result.success?)
@@ -669,7 +676,7 @@ context "Seqs::UpdateUser::Present when the user is not found" do
   seq = Seqs::UpdateUser::Present.new
   seq.find.fail_with(code: :not_found)
 
-  result = seq.(params: { id: 999 }, current_user: User.new)
+  result = seq.(Hubbado::Sequence::Ctx.build(params: { id: 999 }, current_user: User.new))
 
   test "Fails with :not_found" do
     assert(result.code == :not_found)
@@ -710,8 +717,10 @@ context "Seqs::UpdateUser happy path" do
   seq.present.succeed_with(user: user, contract: contract)
 
   result = seq.(
-    params:       { user: { email: "new@example.com" } },
-    current_user: User.new
+    Hubbado::Sequence::Ctx.build(
+      params:       { user: { email: "new@example.com" } },
+      current_user: User.new
+    )
   )
 
   test "Is success" do
@@ -731,7 +740,7 @@ context "Seqs::UpdateUser when Present denies access" do
   seq = Seqs::UpdateUser.new
   seq.present.fail_with(code: :forbidden)
 
-  result = seq.(params: { user: {} }, current_user: User.new)
+  result = seq.(Hubbado::Sequence::Ctx.build(params: { user: {} }, current_user: User.new))
 
   test "Fails" do
     assert(result.failure?)
@@ -754,7 +763,7 @@ context "Seqs::UpdateUser when Present cannot find the record" do
   seq = Seqs::UpdateUser.new
   seq.present.fail_with(code: :not_found)
 
-  result = seq.(params: { id: 999, user: {} }, current_user: User.new)
+  result = seq.(Hubbado::Sequence::Ctx.build(params: { id: 999, user: {} }, current_user: User.new))
 
   test "Fails with :not_found" do
     assert(result.code == :not_found)
